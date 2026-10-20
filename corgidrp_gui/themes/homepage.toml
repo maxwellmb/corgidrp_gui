@@ -1,0 +1,58 @@
+# A 1998 personal homepage: paper ground, chunky 3px bevels, navy and yellow, pixel headings.
+[meta]
+name = "Homepage"
+description = "A 1998 personal homepage: paper ground, chunky bevels, navy and yellow, pixel-font headings."
+
+[palette]
+bg = "#ECEAE3"
+surface = "#F6F5F0"
+surface_alt = "#ffffff"
+text = "#141413"
+muted = "#4A4843"
+primary = "#0B1240"        # navy
+action = "#FFD23F"         # yellow primary button
+secondary = "#1A3FC9"
+selection = "#FFE9A8"
+selection_text = "#141413"
+ok = "#0F6B2E"
+warn = "#8A4B00"
+err = "#C8102E"
+line = "#D6D3CC"
+title_bg = "#0B1240"
+title_fg = "#FFD23F"
+field = "#ffffff"
+
+[type]
+ui = "Verdana"
+heading = "Silkscreen"
+data = "Courier New"
+size = 12
+label_case = "upper"
+label_tracking = 0.0
+label_size = 10
+label_weight = 400
+label_color = "primary"
+
+[shape]
+radius = 0
+border_width = 3
+border_style = "bevel"
+button = "bevel"
+
+[structure]
+panel_frame = "bevel"
+list_frame = "bevel"
+field_frame = "bevel"
+
+[surface]
+shadow = "none"
+gradient = false
+glow = false
+
+[density]
+padding = 8
+row_height = 22
+gap = 8
+
+[extras]
+rainbow_rule = true

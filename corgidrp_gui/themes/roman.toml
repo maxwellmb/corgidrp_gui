@@ -1,0 +1,58 @@
+# Roman Space Telescope look: navy type, red accents, white cards on a pale sky ground.
+[meta]
+name = "Roman"
+description = "Roman Space Telescope: navy type, red accents, white cards on a pale sky background."
+
+[palette]
+bg = "#eef4fa"
+surface = "#ffffff"
+surface_alt = "#f6fafd"
+text = "#0b1f4d"
+muted = "#5b6b8c"
+primary = "#00276b"        # navy: emphasis, title bar
+action = "#e2433b"         # red: primary button, section labels, selection marker, progress
+secondary = "#70cbff"
+selection = "#dbfeff"
+selection_text = "#0b1f4d"
+ok = "#1f9d55"
+warn = "#d9a300"
+err = "#e2433b"
+line = "#c3d6e6"
+title_bg = "#00276b"
+title_fg = "#ffffff"
+field = "#ffffff"
+
+[type]
+ui = "Jost"
+heading = "Jost"
+data = "IBM Plex Mono"
+size = 13
+label_case = "sentence"
+label_tracking = 0.0
+label_size = 14
+label_weight = 600
+label_color = "action"
+
+[shape]
+radius = 6
+border_width = 1
+border_style = "line"
+button = "pill"
+
+[structure]
+panel_frame = "none"
+list_frame = "none"
+field_frame = "line"
+
+[surface]
+shadow = "soft"
+gradient = false
+glow = false
+
+[density]
+padding = 10
+row_height = 24
+gap = 10
+
+[extras]
+selection_marker = true

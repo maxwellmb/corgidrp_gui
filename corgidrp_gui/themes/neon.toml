@@ -1,0 +1,55 @@
+# Cyberpunk terminal: near-black panels, cyan hairlines, magenta action, glow on focus.
+[meta]
+name = "Neon"
+description = "Cyberpunk terminal: near-black panels, cyan hairlines, magenta action, glow on focus."
+
+[palette]
+bg = "#07070f"
+surface = "#0e0e1c"
+surface_alt = "#13132a"
+text = "#d8e7ff"
+muted = "#6f7ba3"
+primary = "#00f0ff"        # cyan
+action = "#ff2bd6"         # magenta
+secondary = "#00f0ff"
+selection = "#1b1b3a"
+selection_text = "#d8e7ff"
+ok = "#39ff88"
+warn = "#f3e600"
+err = "#ff3860"
+line = "#2a3566"
+title_bg = "#0b0b1a"
+title_fg = "#00f0ff"
+field = "#05050c"
+
+[type]
+ui = "Share Tech Mono"
+heading = "Share Tech Mono"
+data = "Share Tech Mono"
+size = 12
+label_case = "upper"
+label_tracking = 0.08
+label_size = 11
+label_weight = 400
+label_color = "primary"
+
+[shape]
+radius = 0
+border_width = 1
+border_style = "line"
+button = "outline"
+
+[structure]
+panel_frame = "line"
+list_frame = "line"
+field_frame = "line"
+
+[surface]
+shadow = "none"
+gradient = true
+glow = true
+
+[density]
+padding = 7
+row_height = 22
+gap = 6

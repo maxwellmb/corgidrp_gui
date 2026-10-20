@@ -1,0 +1,55 @@
+# Motif-era scientific workstation: grey bevels, navy selection, Courier data.
+[meta]
+name = "Console"
+description = "Motif-era scientific workstation: grey raised and sunken bevels, navy selection, Courier data."
+
+[palette]
+bg = "#c0c0c0"
+surface = "#d9d9d9"
+surface_alt = "#e4e4e4"
+text = "#000000"
+muted = "#3c3c3c"
+primary = "#08246b"
+action = "#08246b"
+secondary = "#4a6984"
+selection = "#08246b"
+selection_text = "#ffffff"
+ok = "#007a3d"
+warn = "#b36b00"
+err = "#b00000"
+line = "#7a7a7a"
+title_bg = "#4a6984"
+title_fg = "#ffffff"
+field = "#ffffff"
+
+[type]
+ui = ["Helvetica", "Arial"]
+heading = ["Helvetica", "Arial"]
+data = "Courier New"
+size = 12
+label_case = "plain"
+label_tracking = 0.0
+label_size = 12
+label_weight = 700
+label_color = "text"
+
+[shape]
+radius = 0
+border_width = 2
+border_style = "bevel"
+button = "bevel"
+
+[structure]
+panel_frame = "bevel"
+list_frame = "bevel"
+field_frame = "bevel"
+
+[surface]
+shadow = "none"
+gradient = false
+glow = false
+
+[density]
+padding = 6
+row_height = 20
+gap = 6

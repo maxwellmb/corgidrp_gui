@@ -1,0 +1,988 @@
+{#- corgidrp_gui stylesheet template.
+    Context: t (Theme), p (palette), ty (type), s (shape), st (structure), sf (surface),
+    dn (density), x (extras), d (derived colors), f (resolved font families), icons,
+    label_size.  Structural axes: frame kinds none | line | bevel; button kinds
+    pill | flat | bevel | outline.  Bevels use explicit per-edge colours with
+    border-style outset/inset so the light edge is a real highlight. -#}
+{%- set bw = s.border_width -%}
+{%- set r = s.radius -%}
+{%- set pad = dn.padding -%}
+{%- set gap = dn.gap -%}
+{%- set row = dn.row_height -%}
+{%- set hair = 1 -%}
+
+{%- macro frame(kind, sunken=false, bg=none, width=none) -%}
+{%- set w = width if width is not none else bw -%}
+{%- if kind == "none" -%}
+    border: none;
+    background: {{ bg if bg is not none else "transparent" }};
+{%- elif kind == "line" -%}
+    border: {{ hair }}px solid {{ p.line }};
+    {% if bg is not none %}background: {{ bg }};{% endif %}
+{%- else -%}
+    border-width: {{ w }}px;
+    {% if sunken %}
+    border-style: inset;
+    border-color: {{ d.bevel_lo }} {{ d.bevel_hi }} {{ d.bevel_hi }} {{ d.bevel_lo }};
+    {% else %}
+    border-style: outset;
+    border-color: {{ d.bevel_hi }} {{ d.bevel_lo }} {{ d.bevel_lo }} {{ d.bevel_hi }};
+    {% endif %}
+    {% if bg is not none %}background: {{ bg }};{% endif %}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro vgrad(top, bottom) -%}
+qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {{ top }}, stop:1 {{ bottom }})
+{%- endmacro -%}
+
+{%- set panel_bg = vgrad(d.panel_top, p.surface) if sf.gradient else p.surface -%}
+{%- set button_bg = vgrad(d.button_top, p.surface) if sf.gradient else p.surface -%}
+
+/* ===================================================== base ===== */
+* {
+    font-family: "{{ f.ui }}";
+    font-size: {{ ty.size }}px;
+    outline: 0;
+}
+QWidget {
+    color: {{ p.text }};
+    selection-background-color: {{ p.selection }};
+    selection-color: {{ p.selection_text }};
+}
+QMainWindow, QDialog {
+    background: {{ p.bg }};
+}
+QMainWindow::separator {
+    background: {{ p.line }};
+    width: {{ hair }}px;
+    height: {{ hair }}px;
+}
+QWidget#central {
+    background: {{ p.bg }};
+}
+QLabel {
+    background: transparent;
+}
+QLabel[role="muted"] {
+    color: {{ p.muted }};
+}
+QLabel[role="key"] {
+    color: {{ p.muted }};
+}
+QLabel[role="value"] {
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 1 }}px;
+    color: {{ p.text }};
+}
+QLabel#catalogStatus {
+    font-size: {{ ty.size - 1 }}px;
+}
+QLabel[role="error"] {
+    color: {{ p.err }};
+}
+
+/* ===================================================== title band ===== */
+QFrame[role="titlebar"] {
+    background: {{ p.title_bg }};
+    border: none;
+    {% if s.border_style == "bevel" %}
+    border-bottom: {{ bw }}px solid {{ d.bevel_lo }};
+    {% elif sf.glow %}
+    border-bottom: 1px solid {{ p.primary }};
+    {% endif %}
+}
+QFrame[role="titlebar"] QLabel {
+    color: {{ p.title_fg }};
+    background: transparent;
+}
+QLabel[role="title"] {
+    font-family: "{{ f.heading }}";
+    font-size: {{ 16 if f.heading == "Silkscreen" else ty.size + 7 }}px;
+    font-weight: {{ 400 if f.heading == "Silkscreen" else 600 }};
+}
+QLabel[role="subtitle"] {
+    font-size: {{ ty.size - 1 }}px;
+}
+
+/* ===================================================== menus ===== */
+QMenuBar {
+    {% if s.border_style == "bevel" %}
+    background: {{ p.bg }};
+    {{ frame("bevel", width=1 if bw < 3 else 2) }}
+    {% elif d.dark %}
+    background: {{ p.title_bg }};
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    {% else %}
+    background: {{ p.surface }};
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    {% endif %}
+    padding: 1px {{ (pad / 2) | int }}px;
+}
+QMenuBar::item {
+    background: transparent;
+    padding: 3px {{ pad }}px;
+    {% if r %}border-radius: {{ [r, 4] | min }}px;{% endif %}
+}
+QMenuBar::item:selected {
+    background: {{ p.selection }};
+    color: {{ p.selection_text }};
+}
+QMenuBar::item:pressed {
+    background: {{ p.selection }};
+    color: {{ p.selection_text }};
+}
+QMenu {
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", bg=p.surface) }}
+    {% else %}
+    background: {{ p.surface }};
+    border: {{ hair }}px solid {{ p.primary if sf.glow else p.line }};
+    {% endif %}
+    padding: 4px 0px;
+}
+QMenu::item {
+    padding: 4px {{ pad * 2 }}px 4px {{ pad * 2 + 6 }}px;
+    background: transparent;
+}
+QMenu::item:selected {
+    background: {{ p.selection }};
+    color: {{ p.selection_text }};
+}
+QMenu::item:disabled {
+    color: {{ d.disabled_text }};
+}
+QMenu::separator {
+    height: {{ hair }}px;
+    background: {{ p.line }};
+    margin: 4px {{ pad }}px;
+}
+QMenu::indicator {
+    width: 12px;
+    height: 12px;
+    left: 6px;
+}
+QMenu::indicator:checked {
+    image: url("{{ icons.check }}");
+}
+
+/* ===================================================== tool bar / status bar ===== */
+QToolBar {
+    {% if s.border_style == "bevel" %}
+    background: {{ p.bg }};
+    border: none;
+    border-bottom: {{ [bw - 1, 1] | max }}px solid {{ d.bevel_lo }};
+    {% elif d.dark %}
+    background: {{ panel_bg }};
+    border: none;
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    {% else %}
+    background: {{ p.surface }};
+    border: none;
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    {% endif %}
+    padding: {{ (pad / 2) | int }}px {{ pad }}px;
+    spacing: {{ gap }}px;
+}
+QToolBar::separator {
+    background: {{ p.line }};
+    width: {{ hair }}px;
+    margin: 4px {{ (gap / 2) | int }}px;
+}
+QToolButton {
+    background: transparent;
+    border: {{ hair }}px solid transparent;
+    {% if r %}border-radius: {{ [r, 4] | min }}px;{% endif %}
+    padding: 3px {{ pad }}px;
+    color: {{ p.text }};
+}
+QToolButton:hover {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", width=2) }}
+    {% else %}
+    background: {{ d.hover }};
+    border-color: {{ p.primary if sf.glow else p.line }};
+    {% endif %}
+}
+QToolButton:pressed, QToolButton:checked {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", sunken=true, width=2) }}
+    {% else %}
+    background: {{ d.pressed }};
+    {% endif %}
+}
+QStatusBar {
+    {% if s.border_style == "bevel" %}
+    background: {{ p.bg }};
+    border-top: {{ hair }}px solid {{ d.bevel_hi }};
+    {% elif d.dark %}
+    background: {{ p.title_bg }};
+    border-top: {{ hair }}px solid {{ p.line }};
+    {% else %}
+    background: {{ p.surface }};
+    border-top: {{ hair }}px solid {{ p.line }};
+    {% endif %}
+    color: {{ p.muted }};
+}
+QStatusBar::item {
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", sunken=true, width=1) }}
+    {% else %}
+    border: none;
+    {% endif %}
+}
+QStatusBar QLabel {
+    color: {{ p.muted }};
+    padding: 0px {{ (pad / 2) | int }}px;
+}
+
+/* ===================================================== panels ===== */
+QFrame[role="panel"] {
+    {% if st.panel_frame == "none" %}
+    border: none;
+    {% if sf.shadow == "soft" %}
+    background: {{ p.surface }};
+    border-radius: {{ r }}px;
+    {% else %}
+    background: transparent;
+    {% endif %}
+    {% elif st.panel_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ panel_bg }};
+    {% if r %}border-radius: {{ r }}px;{% endif %}
+    {% else %}
+    {{ frame("bevel", bg=p.surface) }}
+    {% endif %}
+}
+QLabel[role="section"] {
+    font-family: "{{ f.heading }}";
+    font-size: {{ label_size }}px;
+    font-weight: {{ ty.label_weight }};
+    color: {{ d.label }};
+    padding: 0px 0px 1px {{ 1 if st.panel_frame == "none" else 0 }}px;
+}
+QGroupBox {
+    {% if st.panel_frame == "none" %}
+    border: none;
+    border-top: {{ hair }}px solid {{ p.line }};
+    {% elif st.panel_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    {% if r %}border-radius: {{ r }}px;{% endif %}
+    {% else %}
+    border-width: 2px;
+    border-style: groove;
+    border-color: {{ d.bevel_lo }};
+    {% endif %}
+    margin-top: {{ label_size + 4 }}px;
+    padding: {{ pad }}px {{ pad }}px {{ (pad / 2) | int }}px {{ pad }}px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: {{ 0 if st.panel_frame == "none" else pad }}px;
+    padding: 0px 4px;
+    font-family: "{{ f.heading }}";
+    font-size: {{ label_size }}px;
+    font-weight: {{ ty.label_weight }};
+    color: {{ d.label }};
+}
+
+/* ===================================================== buttons ===== */
+QPushButton {
+    {% if s.button == "pill" %}
+    background: {{ p.surface }};
+    border: {{ hair }}px solid {{ p.line }};
+    border-radius: {{ ((row + 8) / 2) | int }}px;
+    padding: 4px {{ pad + 6 }}px;
+    color: {{ p.primary }};
+    font-weight: 500;
+    {% elif s.button == "outline" %}
+    background: {{ button_bg }};
+    border: {{ hair }}px solid {{ p.primary }};
+    border-radius: {{ r }}px;
+    padding: 3px {{ pad + 2 }}px;
+    color: {{ p.primary }};
+    {% elif s.button == "bevel" %}
+    {{ frame("bevel", bg=p.surface) }}
+    border-radius: 0px;
+    padding: 2px {{ pad + 2 }}px;
+    color: {{ p.text }};
+    {% else %}
+    background: {{ d.hover }};
+    border: none;
+    border-radius: {{ r }}px;
+    padding: 4px {{ pad + 2 }}px;
+    color: {{ p.text }};
+    {% endif %}
+    min-height: {{ row - 6 }}px;
+}
+QPushButton:hover {
+    {% if s.button == "pill" %}
+    background: {{ d.hover }};
+    border-color: {{ p.secondary }};
+    {% elif s.button == "outline" %}
+    background: {{ p.primary | rgba(0.12) }};
+    {% if sf.glow %}border-color: {{ p.primary | lighten(0.5) }};{% endif %}
+    {% elif s.button == "bevel" %}
+    background: {{ p.surface | lighten(0.35) }};
+    {% else %}
+    background: {{ d.pressed }};
+    {% endif %}
+}
+QPushButton:pressed {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", sunken=true) }}
+    padding: 3px {{ pad + 1 }}px 1px {{ pad + 3 }}px;
+    background: {{ p.surface | darken(0.04) }};
+    {% elif s.button == "outline" %}
+    background: {{ p.primary | rgba(0.25) }};
+    {% else %}
+    background: {{ d.pressed }};
+    {% endif %}
+}
+QPushButton:focus {
+    {% if s.button == "bevel" %}
+    {# keep the bevel; a focus cue would erase it #}
+    {% elif sf.glow %}
+    border: 2px solid {{ p.primary | lighten(0.4) }};
+    padding: 2px {{ pad + 1 }}px;
+    {% else %}
+    border-color: {{ d.focus }};
+    {% endif %}
+}
+QPushButton:disabled {
+    color: {{ d.disabled_text }};
+    {% if s.button == "bevel" %}
+    background: {{ p.surface }};
+    {% elif s.button == "outline" %}
+    background: transparent;
+    border-color: {{ p.line }};
+    {% else %}
+    background: {{ d.disabled_bg }};
+    border-color: {{ p.line }};
+    {% endif %}
+}
+QPushButton[role="primary"] {
+    {% if s.button == "outline" %}
+    background: {{ vgrad(p.action | rgba(0.22), p.action | rgba(0.06)) if sf.gradient else "transparent" }};
+    border: {{ 2 if sf.glow else 1 }}px solid {{ p.action }};
+    color: {{ p.action }};
+    {% elif s.button == "bevel" %}
+    background: {{ p.action }};
+    color: {{ d.action_text }};
+    font-weight: bold;
+    {% else %}
+    background: {{ p.action }};
+    border: {{ hair }}px solid {{ p.action }};
+    color: {{ d.action_text }};
+    font-weight: 600;
+    {% endif %}
+}
+QPushButton[role="primary"]:hover {
+    {% if s.button == "outline" %}
+    background: {{ p.action | rgba(0.28) }};
+    {% else %}
+    background: {{ d.action_hover }};
+    {% if s.button != "bevel" %}border-color: {{ d.action_hover }};{% endif %}
+    {% endif %}
+}
+QPushButton[role="primary"]:pressed {
+    {% if s.button == "outline" %}
+    background: {{ p.action | rgba(0.4) }};
+    {% elif s.button == "bevel" %}
+    background: {{ p.action | darken(0.08) }};
+    {% else %}
+    background: {{ d.action_pressed }};
+    border-color: {{ d.action_pressed }};
+    {% endif %}
+}
+QPushButton[role="primary"]:focus {
+    {% if s.button == "outline" %}
+    border: 2px solid {{ p.action | lighten(0.35) }};
+    {% elif s.button == "pill" %}
+    border-color: {{ d.action_pressed }};
+    {% endif %}
+}
+QPushButton[role="primary"]:disabled {
+    background: {{ d.disabled_bg }};
+    color: {{ d.disabled_text }};
+    {% if s.button != "bevel" %}border-color: {{ p.line }};{% endif %}
+}
+
+QPushButton[role="link"] {
+    background: transparent;
+    border: none;
+    padding: 0px 2px;
+    min-height: 0px;
+    color: {{ p.secondary if not (s.button == "pill") else p.primary }};
+    text-decoration: underline;
+    font-size: {{ ty.size - 1 }}px;
+}
+QPushButton[role="link"]:hover {
+    color: {{ p.action if s.button != "bevel" else p.primary }};
+    background: transparent;
+}
+QPushButton[role="link"]:disabled {
+    color: {{ d.disabled_text }};
+    background: transparent;
+}
+QPushButton[role="link"]:focus {
+    border: none;
+}
+
+/* launcher tiles: two-line buttons (labels inside are mouse-transparent) */
+QPushButton[tile="true"] {
+    text-align: left;
+    padding: {{ pad }}px {{ pad + 6 }}px;
+    {% if s.button == "pill" %}
+    border-radius: {{ [r * 2, 14] | min }}px;
+    {% endif %}
+}
+QPushButton[tile="true"] QLabel {
+    background: transparent;
+    border: none;
+}
+QPushButton[tile="true"] QLabel[role="tile_title"] {
+    font-family: "{{ f.heading }}";
+    font-size: {{ (ty.size + 1) if f.heading == "Silkscreen" else (ty.size + 3) }}px;
+    font-weight: {{ 700 if f.heading != "Silkscreen" else 400 }};
+    color: {{ p.primary if s.button != "bevel" else p.text }};
+}
+QPushButton[tile="true"] QLabel[role="tile_subtitle"] {
+    font-size: {{ ty.size - 1 }}px;
+    color: {{ p.muted }};
+}
+QPushButton[role="primary"] QLabel[role="tile_title"] {
+    color: {{ p.action if s.button == "outline" else d.action_text }};
+}
+QPushButton[role="primary"] QLabel[role="tile_subtitle"] {
+    color: {{ (p.action | mix(p.text, 0.35)) if s.button == "outline" else (d.action_text | mix(p.action, 0.22)) }};
+}
+
+/* ===================================================== fields ===== */
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QAbstractSpinBox {
+    {% if st.field_frame == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.field, width=2) }}
+    {% elif st.field_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ p.field }};
+    {% if r %}border-radius: {{ [r, 6] | min }}px;{% endif %}
+    {% else %}
+    border: none;
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    background: transparent;
+    {% endif %}
+    color: {{ p.text }};
+    padding: 2px {{ (pad / 2) | int + 2 }}px;
+    min-height: {{ row - 6 }}px;
+    selection-background-color: {{ p.selection }};
+    selection-color: {{ p.selection_text }};
+}
+QLineEdit:hover, QSpinBox:hover, QComboBox:hover, QAbstractSpinBox:hover {
+    {% if st.field_frame == "line" %}border-color: {{ p.muted if not d.dark else p.primary | mix(p.line, 0.5) }};{% endif %}
+}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QAbstractSpinBox:focus {
+    {% if sf.glow %}
+    border: 2px solid {{ p.primary }};
+    padding: 1px {{ (pad / 2) | int + 1 }}px;
+    {% elif st.field_frame == "line" %}
+    border: {{ hair }}px solid {{ d.focus }};
+    {% endif %}
+}
+QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled {
+    color: {{ d.disabled_text }};
+    background: {{ d.disabled_bg }};
+}
+QLineEdit[role="data"] {
+    font-family: "{{ f.data }}";
+}
+QComboBox {
+    padding-right: 22px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", bg=p.surface, width=2) }}
+    {% else %}
+    border: none;
+    {% if st.field_frame == "line" %}border-left: {{ hair }}px solid {{ p.line }};{% endif %}
+    background: transparent;
+    {% endif %}
+}
+QComboBox::down-arrow {
+    image: url("{{ icons.down }}");
+    width: 10px;
+    height: 10px;
+}
+QComboBox::down-arrow:disabled {
+    image: url("{{ icons.down_disabled }}");
+}
+QComboBox QAbstractItemView {
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", bg=p.field, width=2) }}
+    {% else %}
+    border: {{ hair }}px solid {{ p.primary if sf.glow else p.line }};
+    background: {{ p.field }};
+    {% endif %}
+    selection-background-color: {{ p.selection }};
+    selection-color: {{ p.selection_text }};
+    padding: 2px;
+}
+QAbstractSpinBox {
+    padding-right: 20px;
+}
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 18px;
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", bg=p.surface, width=2) }}
+    {% else %}
+    border: none;
+    {% if st.field_frame == "line" %}border-left: {{ hair }}px solid {{ p.line }};{% endif %}
+    background: transparent;
+    {% endif %}
+}
+QAbstractSpinBox::up-button {
+    subcontrol-position: top right;
+}
+QAbstractSpinBox::down-button {
+    subcontrol-position: bottom right;
+}
+QAbstractSpinBox::up-button:pressed, QAbstractSpinBox::down-button:pressed {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", sunken=true, width=2) }}
+    {% else %}
+    background: {{ d.pressed }};
+    {% endif %}
+}
+QAbstractSpinBox::up-arrow {
+    image: url("{{ icons.up }}");
+    width: 8px;
+    height: 8px;
+}
+QAbstractSpinBox::down-arrow {
+    image: url("{{ icons.down }}");
+    width: 8px;
+    height: 8px;
+}
+QAbstractSpinBox::up-arrow:disabled {
+    image: url("{{ icons.up_disabled }}");
+}
+QAbstractSpinBox::down-arrow:disabled {
+    image: url("{{ icons.down_disabled }}");
+}
+
+QCheckBox, QRadioButton {
+    spacing: {{ (gap / 2) | int + 2 }}px;
+    background: transparent;
+}
+QCheckBox:disabled {
+    color: {{ d.disabled_text }};
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    {% if st.field_frame == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.field, width=2) }}
+    {% else %}
+    border: {{ hair }}px solid {{ p.primary if sf.glow else p.muted }};
+    background: {{ p.field }};
+    {% if r %}border-radius: {{ [r - 2, 3] | min }}px;{% endif %}
+    {% endif %}
+}
+QCheckBox::indicator:hover {
+    {% if st.field_frame != "bevel" %}border-color: {{ p.primary }};{% endif %}
+}
+QCheckBox::indicator:checked {
+    image: url("{{ icons.check }}");
+    {% if s.button == "pill" %}
+    background: {{ p.action }};
+    border-color: {{ p.action }};
+    {% endif %}
+}
+QCheckBox::indicator:checked:disabled {
+    image: url("{{ icons.check_disabled }}");
+}
+
+/* ===================================================== item views ===== */
+QAbstractItemView {
+    {% if st.list_frame == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.field) }}
+    {% elif st.list_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ p.field }};
+    {% if r %}border-radius: {{ [r, 6] | min }}px;{% endif %}
+    {% else %}
+    border: none;
+    background: transparent;
+    {% endif %}
+    alternate-background-color: {{ p.surface_alt }};
+    selection-background-color: {{ p.selection }};
+    selection-color: {{ p.selection_text }};
+    gridline-color: {{ d.grid }};
+    color: {{ p.text }};
+}
+QAbstractItemView:focus {
+    {% if sf.glow %}border: 1px solid {{ p.primary }};{% endif %}
+}
+QAbstractItemView:disabled {
+    color: {{ d.disabled_text }};
+}
+QTableView, QTreeView {
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 1 }}px;
+}
+QTableView::item {
+    padding: 0px {{ (pad / 2) | int + 2 }}px;
+    border: none;
+}
+QTableView::item:selected, QTreeView::item:selected, QListView::item:selected {
+    background: {{ p.selection }};
+    color: {{ p.selection_text }};
+}
+QTreeView::item, QListView::item {
+    min-height: {{ row }}px;
+    padding: 0px {{ (pad / 2) | int }}px;
+    border: none;
+}
+QListView::item:hover, QTreeView::item:hover {
+    background: {{ d.hover }};
+}
+{% if x.get("selection_marker") %}
+QListView::item:selected {
+    border-left: 3px solid {{ p.action }};
+    padding-left: {{ (pad / 2) | int - 3 if (pad / 2) | int > 3 else 0 }}px;
+    font-weight: 600;
+}
+{% endif %}
+{% if sf.glow %}
+QListView::item:selected {
+    border-left: 2px solid {{ p.primary }};
+}
+{% endif %}
+QListView[role="steps"] {
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 1 }}px;
+}
+QTableCornerButton::section {
+    background: {{ d.header_bg }};
+    border: none;
+}
+QHeaderView {
+    background: transparent;
+    border: none;
+}
+QHeaderView::section {
+    font-family: "{{ f.ui }}";
+    font-size: {{ ty.size - 1 }}px;
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", bg=p.surface, width=[bw - 1, 1] | max) }}
+    color: {{ p.text }};
+    font-weight: bold;
+    padding: 1px {{ (pad / 2) | int + 2 }}px;
+    {% elif d.dark %}
+    background: {{ p.surface_alt }};
+    border: none;
+    border-bottom: {{ hair }}px solid {{ p.primary if sf.glow else p.line }};
+    border-right: {{ hair }}px solid {{ p.line }};
+    color: {{ p.primary }};
+    padding: 2px {{ (pad / 2) | int + 2 }}px;
+    {% else %}
+    background: {{ d.header_bg }};
+    border: none;
+    border-bottom: {{ hair }}px solid {{ p.line }};
+    color: {{ p.muted }};
+    font-weight: 600;
+    padding: 3px {{ (pad / 2) | int + 2 }}px;
+    {% endif %}
+}
+QHeaderView::section:vertical {
+    padding: 0px 4px;
+}
+
+/* ===================================================== log ===== */
+QTextEdit, QPlainTextEdit {
+    {% if st.field_frame == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.field) }}
+    {% elif st.field_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ p.field }};
+    {% if r %}border-radius: {{ [r, 6] | min }}px;{% endif %}
+    {% else %}
+    border: none;
+    background: {{ p.field }};
+    {% endif %}
+    selection-background-color: {{ p.selection }};
+    selection-color: {{ p.selection_text }};
+}
+QTextEdit[role="log"], QPlainTextEdit[role="log"] {
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 1 }}px;
+    background: {{ p.field }};
+    color: {{ p.text }};
+    padding: {{ (pad / 2) | int }}px;
+}
+
+/* ===================================================== status chips ===== */
+{% for k in ["ok", "warn", "err", "run", "dim"] %}
+QLabel[chip="{{ k }}"] {
+    font-size: {{ ty.size - 2 }}px;
+    padding: 1px {{ (pad / 2) | int + 3 }}px;
+    {% if s.button == "pill" %}
+    border-radius: 9px;
+    font-weight: 600;
+    {% endif %}
+    {% if s.button == "pill" %}
+    background: {{ d["chip_" ~ k ~ "_tint"] }};
+    color: {{ d["chip_" ~ k ~ "_deep"] }};
+    border: {{ hair }}px solid {{ d["chip_" ~ k] | mix(p.surface, 0.55) }};
+    {% elif s.button == "outline" %}
+    background: {{ d["chip_" ~ k] | rgba(0.10) }};
+    color: {{ d["chip_" ~ k] }};
+    border: {{ hair }}px solid {{ d["chip_" ~ k] }};
+    {% elif s.button == "bevel" %}
+    {% if k == "dim" %}
+    {{ frame("bevel", sunken=true, bg=p.surface, width=[bw - 1, 1] | max) }}
+    color: {{ p.muted }};
+    {% else %}
+    {{ frame("bevel", bg=d["chip_" ~ k], width=[bw - 1, 1] | max) }}
+    color: {{ d["chip_" ~ k ~ "_text"] }};
+    {% endif %}
+    {% else %}
+    background: {{ d["chip_" ~ k] }};
+    color: {{ d["chip_" ~ k ~ "_text"] }};
+    border: none;
+    {% endif %}
+}
+{% endfor %}
+
+/* step strip: done / running / pending */
+QLabel[step="done"], QLabel[step="running"], QLabel[step="pending"] {
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 2 }}px;
+    padding: 2px {{ (pad / 2) | int + 1 }}px;
+    {% if r %}border-radius: {{ [r - 2, 3] | max }}px;{% endif %}
+}
+QLabel[step="done"] {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", bg=p.surface, width=[bw - 1, 1] | max) }}
+    color: {{ p.ok }};
+    {% else %}
+    background: {{ d.chip_ok_tint }};
+    color: {{ d.chip_ok_deep }};
+    border: {{ hair }}px solid {{ p.ok | mix(p.surface, 0.5) }};
+    {% endif %}
+}
+QLabel[step="running"] {
+    {% if s.button == "outline" %}
+    background: {{ p.action | rgba(0.18) }};
+    color: {{ p.action }};
+    border: 2px solid {{ p.action }};
+    {% elif s.button == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.action, width=[bw - 1, 1] | max) }}
+    color: {{ d.action_text }};
+    font-weight: bold;
+    {% else %}
+    background: {{ p.action }};
+    color: {{ d.action_text }};
+    border: {{ hair }}px solid {{ p.action }};
+    font-weight: 600;
+    {% endif %}
+}
+QLabel[step="pending"] {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.bg, width=1) }}
+    {% else %}
+    background: transparent;
+    border: {{ hair }}px {{ "dashed" if not sf.glow else "solid" }} {{ p.line }};
+    {% endif %}
+    color: {{ p.muted }};
+}
+
+/* ===================================================== progress ===== */
+QProgressBar {
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", sunken=true, bg=p.field, width=2) }}
+    {% elif s.button == "pill" %}
+    border: none;
+    background: {{ p.line | mix(p.surface, 0.45) }};
+    border-radius: 4px;
+    {% else %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ p.field }};
+    {% endif %}
+    color: {{ p.text }};
+    text-align: center;
+    font-family: "{{ f.data }}";
+    font-size: {{ ty.size - 2 }}px;
+    min-height: {{ 8 if s.button == "pill" else row - 6 }}px;
+    max-height: {{ 8 if s.button == "pill" else row - 2 }}px;
+}
+QProgressBar::chunk {
+    {% if x.get("rainbow_rule") %}
+    background: {{ p.secondary }};
+    width: 9px;
+    margin: 2px 1px;
+    {% elif s.button == "bevel" %}
+    background: {{ p.primary }};
+    margin: 1px;
+    {% elif sf.gradient %}
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {{ p.primary }}, stop:1 {{ p.action }});
+    margin: 1px;
+    {% else %}
+    background: {{ p.action }};
+    border-radius: 4px;
+    {% endif %}
+}
+
+/* ===================================================== tabs ===== */
+QTabWidget::pane {
+    {% if st.panel_frame == "bevel" %}
+    {{ frame("bevel", bg=p.surface) }}
+    {% elif st.panel_frame == "line" %}
+    border: {{ hair }}px solid {{ p.line }};
+    background: {{ panel_bg }};
+    {% elif sf.shadow == "soft" %}
+    border: none;
+    background: {{ p.surface }};
+    border-radius: {{ r }}px;
+    border-top-left-radius: 0px;
+    {% else %}
+    border: none;
+    border-top: {{ hair }}px solid {{ p.line }};
+    background: transparent;
+    {% endif %}
+    top: -{{ bw if s.button == "bevel" else 1 }}px;
+}
+QTabBar {
+    background: transparent;
+}
+QTabBar::tab {
+    {% if s.button == "bevel" %}
+    {{ frame("bevel", bg=p.bg) }}
+    border-bottom: none;
+    padding: 3px {{ pad + 4 }}px;
+    margin-right: 2px;
+    margin-top: 2px;
+    {% elif s.button == "outline" %}
+    background: transparent;
+    border: {{ hair }}px solid {{ p.line }};
+    border-bottom: none;
+    padding: 3px {{ pad + 4 }}px;
+    margin-right: 3px;
+    color: {{ p.muted }};
+    {% else %}
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 4px {{ pad + 2 }}px;
+    margin-right: {{ gap }}px;
+    color: {{ p.muted }};
+    {% endif %}
+}
+QTabBar::tab:selected {
+    {% if s.button == "bevel" %}
+    background: {{ p.surface }};
+    margin-top: 0px;
+    padding-bottom: 5px;
+    font-weight: bold;
+    {% elif s.button == "outline" %}
+    border-color: {{ p.primary }};
+    color: {{ p.primary }};
+    background: {{ p.primary | rgba(0.08) }};
+    {% else %}
+    border-bottom: 2px solid {{ p.action }};
+    color: {{ p.primary }};
+    font-weight: 600;
+    {% endif %}
+}
+QTabBar::tab:hover:!selected {
+    color: {{ p.text }};
+    {% if s.button not in ["bevel", "outline"] %}border-bottom: 2px solid {{ p.line }};{% endif %}
+}
+
+/* ===================================================== scroll bars ===== */
+QScrollBar:vertical {
+    {% if s.border_style == "bevel" %}
+    background: {{ d.track }};
+    width: {{ 14 + bw }}px;
+    border: none;
+    {% else %}
+    background: transparent;
+    width: {{ 10 if not sf.glow else 8 }}px;
+    border: none;
+    {% endif %}
+    margin: 0px;
+}
+QScrollBar:horizontal {
+    {% if s.border_style == "bevel" %}
+    background: {{ d.track }};
+    height: {{ 14 + bw }}px;
+    border: none;
+    {% else %}
+    background: transparent;
+    height: {{ 10 if not sf.glow else 8 }}px;
+    border: none;
+    {% endif %}
+    margin: 0px;
+}
+QScrollBar::handle {
+    {% if s.border_style == "bevel" %}
+    {{ frame("bevel", bg=p.surface, width=2) }}
+    {% elif sf.glow %}
+    background: {{ p.primary | rgba(0.45) }};
+    border: none;
+    {% else %}
+    background: {{ d.handle }};
+    border: 2px solid transparent;
+    border-radius: 4px;
+    {% endif %}
+}
+QScrollBar::handle:hover {
+    {% if s.border_style != "bevel" %}background: {{ p.primary if sf.glow else p.muted }};{% endif %}
+}
+QScrollBar::handle:vertical {
+    min-height: 24px;
+}
+QScrollBar::handle:horizontal {
+    min-width: 24px;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0px;
+    height: 0px;
+    border: none;
+    background: transparent;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+
+/* ===================================================== splitter / tooltip ===== */
+QSplitter::handle {
+    {% if s.border_style == "bevel" %}
+    background: {{ p.bg }};
+    {% else %}
+    background: transparent;
+    {% endif %}
+}
+QSplitter::handle:horizontal {
+    width: {{ gap }}px;
+}
+QSplitter::handle:vertical {
+    height: {{ gap }}px;
+}
+QSplitter::handle:hover {
+    background: {{ p.line }};
+}
+QToolTip {
+    background: {{ p.title_bg }};
+    color: {{ p.title_fg }};
+    border: {{ hair }}px solid {{ p.primary if sf.glow else p.title_bg | darken(0.2) }};
+    padding: 3px 6px;
+    {% if r %}border-radius: 3px;{% endif %}
+}
+QMessageBox QLabel {
+    color: {{ p.text }};
+}
