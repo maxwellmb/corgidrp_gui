@@ -22,3 +22,20 @@ def mock_l1_files(tmp_path_factory):
     d = tmp_path_factory.mktemp("l1")
     ds = mocks.create_prescan_files(filedir=str(d), numfiles=2)
     return sorted(str(f.filepath) for f in ds)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _close_qt_windows_at_exit():
+    yield
+    try:
+        from qtpy import QtWidgets
+    except ImportError:  # pragma: no cover
+        return
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        return
+    for w in app.topLevelWidgets():
+        w.close()
+        w.deleteLater()
+    app.processEvents()
+    app.processEvents()

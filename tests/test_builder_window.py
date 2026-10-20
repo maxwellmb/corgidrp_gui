@@ -192,3 +192,6 @@ def test_value_popout_dialog(app, catalog):
     assert d.value() == {"a": [1, 2]} and d.text().startswith("{\n")
     d.edit.setPlainText("")
     assert d.value() is MISSING and "default" in d.status.text()
+    d.close()
+    d.deleteLater()
+    app.processEvents()
