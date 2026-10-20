@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "corgidrp_gui"
+version = "0.1.0.dev0"
+description = "Desktop GUI wrapper around corgidrp: recipe parser, recipe builder, status console"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "BSD-3-Clause"}
+authors = [{name = "Max Millar-Blanchaer"}]
+dependencies = [
+    "corgidrp",
+    "PySide6>=6.6",
+    "qtpy>=2.4",
+    "jinja2>=3.1",
+    "astropy",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-qt"]
+
+[project.scripts]
+corgidrp-gui = "corgidrp_gui.app:main"
+corgidrp-gui-run = "corgidrp_gui.runner:main"
+
+[tool.setuptools.packages.find]
+include = ["corgidrp_gui*"]
+
+[tool.setuptools.package-data]
+corgidrp_gui = ["themes/*.toml", "themes/*.qss", "themes/*.j2", "fonts/*.ttf", "fonts/*.otf", "fonts/LICENSE*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
