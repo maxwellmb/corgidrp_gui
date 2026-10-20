@@ -21,7 +21,7 @@ import corgidrp.mocks as mocks  # noqa: E402
 files = sorted(f.filepath for f in mocks.create_prescan_files(filedir=tmp, numfiles=3))
 out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "screenshots")
 os.makedirs(out, exist_ok=True)
-for key in sys.argv[1:] or ["roman", "console", "neon", "homepage"]:
+for key in sys.argv[1:] or ["roman", "console", "neon", "homepage", "midnight"]:
     theming.theme_manager().set_theme(key, persist=False)
     win = ParserWindow()
     win.resize(1180, 760)

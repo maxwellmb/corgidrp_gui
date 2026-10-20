@@ -93,7 +93,7 @@ def test_parser_window_end_to_end(app, mock_l1_files, tiny_template, tmp_path):
     win.close()
 
 
-@pytest.mark.parametrize("key", ["roman", "console", "neon", "homepage"])
+@pytest.mark.parametrize("key", ["roman", "console", "neon", "homepage", "midnight"])
 def test_parser_window_under_every_theme(app, key):
     from corgidrp_gui import theming
     from corgidrp_gui.ui.parser_window import ParserWindow

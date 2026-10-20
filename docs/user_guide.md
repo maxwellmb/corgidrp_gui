@@ -169,14 +169,15 @@ says a calibration is missing.
 ## Themes
 
 A theme is a whole style system, not a palette: colors, fonts, corner radius, border style,
-how many things get a box, shading, and spacing. Four ship with the GUI (Roman, Console, Neon,
-Homepage '98); switch from any window's *Theme* menu or the Launcher's combo. The choice is
+how many things get a box, shading, and spacing. Five ship with the GUI (Roman, Console, Neon,
+Homepage '98, Midnight); switch from any window's *Theme* menu or the Launcher's combo. The choice is
 remembered.
 
 ![Roman](screenshots/roman_gallery.png)
 ![Console](screenshots/console_gallery.png)
 ![Neon](screenshots/neon_gallery.png)
 ![Homepage](screenshots/homepage_gallery.png)
+![Midnight](screenshots/midnight_gallery.png)
 
 To make your own, copy one of the `.toml` files from `corgidrp_gui/themes/` into
 `~/.corgidrp_gui/themes/`, rename it, and edit the values. It appears in the Theme menu at the

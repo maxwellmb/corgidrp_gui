@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Midnight theme: a calm dark theme without glow or neon.
+- CalDB viewer: Remove missing entries button.
+
 ## 0.1.0 — 2026-10-20
 
 First complete version.

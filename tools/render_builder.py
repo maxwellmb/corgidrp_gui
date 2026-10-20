@@ -15,7 +15,7 @@ from corgidrp_gui.ui.builder_window import BuilderWindow  # noqa: E402
 
 app = make_app([], restore=False)
 out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "screenshots")
-for key in sys.argv[1:] or ["roman", "console", "neon", "homepage"]:
+for key in sys.argv[1:] or ["roman", "console", "neon", "homepage", "midnight"]:
     theming.theme_manager().set_theme(key, persist=False)
     w = BuilderWindow()
     w.resize(1320, 820)

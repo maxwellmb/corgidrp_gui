@@ -32,7 +32,7 @@ def tiny(name, inputs, suffix, steps=None):
 
 
 shots = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "screenshots")
-for key in sys.argv[1:] or ["roman", "console", "neon", "homepage"]:
+for key in sys.argv[1:] or ["roman", "console", "neon", "homepage", "midnight"]:
     theming.theme_manager().set_theme(key, persist=False)
     win = ConsoleWindow(queue=JobQueue(tempfile.mkdtemp()), restore=False)
     win.resize(1240, 800)

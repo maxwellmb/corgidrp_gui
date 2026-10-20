@@ -8,7 +8,7 @@ import pytest
 
 from corgidrp_gui import theming
 
-THEME_KEYS = ["roman", "console", "neon", "homepage"]
+THEME_KEYS = ["roman", "console", "neon", "homepage", "midnight"]
 BAD_QT_MESSAGES = ("Could not parse", "Unknown property")
 settings_dir = None
 
@@ -68,7 +68,7 @@ def test_theme_loads(key):
 
 
 def test_theme_specifics():
-    roman, console, neon, home = (theming.load_theme(k) for k in THEME_KEYS)
+    roman, console, neon, home = (theming.load_theme(k) for k in THEME_KEYS[:4])
     assert roman.palette.action == "#e2433b" and roman.surface.shadow == "soft"
     assert console.shape.button == "bevel" and console.structure.panel_frame == "bevel"
     assert neon.surface.glow and neon.surface.gradient and neon.type.label_case == "upper"

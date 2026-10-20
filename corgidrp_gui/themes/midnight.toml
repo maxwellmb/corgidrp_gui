@@ -1,0 +1,56 @@
+# Night-shift theme: deep blue-grey surfaces, low-contrast hairlines, one soft sky-blue accent.
+# Dark without glare: no glow, no gradients, no saturated neon; comfortable for long sessions.
+[meta]
+name = "Midnight"
+description = "Calm dark theme: blue-grey surfaces, soft sky-blue accent, no glow."
+
+[palette]
+bg = "#12161d"
+surface = "#1a2029"
+surface_alt = "#202834"
+text = "#d6dde7"
+muted = "#8691a1"
+primary = "#8cbcff"        # soft sky blue: headings, focus, links
+action = "#8cbcff"         # primary button fill (dark text on it)
+secondary = "#9ccfc4"      # muted teal: running state, progress
+selection = "#2a3a52"
+selection_text = "#e6edf7"
+ok = "#8fd19e"
+warn = "#e3c177"
+err = "#f08c8c"
+line = "#2b3442"
+title_bg = "#0e1218"
+title_fg = "#d6dde7"
+field = "#0f1319"
+
+[type]
+ui = "Jost"
+heading = "Jost"
+data = "IBM Plex Mono"
+size = 13
+label_case = "sentence"
+label_tracking = 0.0
+label_size = 13
+label_weight = 600
+label_color = "primary"
+
+[shape]
+radius = 5
+border_width = 1
+border_style = "line"
+button = "flat"
+
+[structure]
+panel_frame = "line"
+list_frame = "line"
+field_frame = "line"
+
+[surface]
+shadow = "none"
+gradient = false
+glow = false
+
+[density]
+padding = 9
+row_height = 24
+gap = 8
