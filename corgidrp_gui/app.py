@@ -38,6 +38,8 @@ class ToolWindows:
         self.launcher = launcher
         self.windows: dict[str, QtWidgets.QMainWindow] = {}
         launcher.set_tool_handler("parser", self.open_parser)
+        launcher.set_tool_handler("builder", self.open_builder)
+        launcher.catalog_rebuilt.connect(self._on_catalog_rebuilt)
 
     def _show(self, key, factory):
         win = self.windows.get(key)
@@ -51,7 +53,24 @@ class ToolWindows:
 
     def open_parser(self):
         from .ui.parser_window import ParserWindow
-        return self._show("parser", ParserWindow)
+
+        def factory():
+            w = ParserWindow()
+            w.builder_handler = lambda recipe: self.open_builder().load_recipe(recipe)
+            return w
+        return self._show("parser", factory)
+
+    def open_builder(self):
+        from .ui.builder_window import BuilderWindow
+        return self._show("builder", BuilderWindow)
+
+    def _on_catalog_rebuilt(self):
+        b = self.windows.get("builder")
+        if b is not None:
+            b.reload_catalog()
+        p = self.windows.get("parser")
+        if p is not None:
+            p._fill_override_combo()
 
 
 def main(argv: list[str] | None = None) -> int:

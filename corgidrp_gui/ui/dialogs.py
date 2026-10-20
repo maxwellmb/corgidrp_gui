@@ -80,3 +80,65 @@ def text_dialog(parent, title: str, text: str, mono: bool = True):
     lay.addWidget(bb)
     d.open()
     return d
+
+
+class InputsDialog(QtWidgets.QDialog):
+    """Edit a recipe's input file list."""
+
+    def __init__(self, inputs: list[str], parent=None, start_dir: str | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Recipe inputs")
+        self.resize(720, 460)
+        self._start = start_dir or os.path.expanduser("~")
+        lay = QtWidgets.QVBoxLayout(self)
+        self.list = QtWidgets.QListWidget()
+        self.list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.list.addItems(list(inputs))
+        lay.addWidget(self.list, 1)
+        row = QtWidgets.QHBoxLayout()
+        for text, slot in (("Add files…", self.add_files), ("Add folder…", self.add_folder),
+                           ("Remove", self.remove_selected), ("Clear", self.list.clear)):
+            b = QtWidgets.QPushButton(text)
+            b.clicked.connect(lambda _=False, s=slot: s())
+            row.addWidget(b)
+        row.addStretch(1)
+        self.count = QtWidgets.QLabel()
+        row.addWidget(self.count)
+        lay.addLayout(row)
+        bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        self.list.model().rowsInserted.connect(self._update_count)
+        self.list.model().rowsRemoved.connect(self._update_count)
+        self._update_count()
+
+    def _update_count(self, *_):
+        n = self.list.count()
+        self.count.setText(f"{n} file{'s' if n != 1 else ''}")
+
+    def add_files(self):
+        paths, _ = QtWidgets.QFileDialog.getOpenFileNames(self, "Add input files", self._start, "FITS files (*.fits *.fit *.fits.gz);;All files (*)")
+        self._add(paths)
+
+    def add_folder(self):
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, "Add every FITS file in a folder", self._start)
+        if d:
+            import glob as _glob
+            self._add(sorted(_glob.glob(os.path.join(d, "*.fits"))))
+
+    def _add(self, paths):
+        have = set(self.inputs())
+        for p in paths:
+            if p not in have:
+                self.list.addItem(p)
+                have.add(p)
+        if paths:
+            self._start = os.path.dirname(paths[0])
+
+    def remove_selected(self):
+        for it in self.list.selectedItems():
+            self.list.takeItem(self.list.row(it))
+
+    def inputs(self) -> list[str]:
+        return [self.list.item(i).text() for i in range(self.list.count())]

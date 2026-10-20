@@ -233,3 +233,27 @@ def validate_recipe(recipe: Recipe, catalog: StepCatalog, start_level: str | Non
         if recipe.outputdir and not os.path.isdir(recipe.outputdir):
             issues.append(Issue("warning", f"output directory does not exist yet: {recipe.outputdir}"))
     return issues
+
+
+_NAME_LEVEL = __import__("re").compile(r"^(l1|l2a|l2b|l3|l4)_", __import__("re").I)
+
+
+def guess_start_level(recipe: "Recipe", backend=None) -> str | None:
+    """Data level of the recipe's inputs: from the first input's DATALVL header if
+    readable, else from a name like ``l2a_to_l2b``."""
+    if recipe.inputs:
+        try:
+            if backend is None:
+                from ..backend import default_backend
+                backend = default_backend()
+            h = backend.read_headers(recipe.inputs[0])
+            lvl = h.get("DATALVL")
+            if lvl:
+                return str(lvl)
+        except Exception:  # noqa: BLE001 - header read is best effort
+            pass
+    for text in (recipe.name, os.path.basename(recipe.source_path or "")):
+        m = _NAME_LEVEL.match(text or "")
+        if m:
+            return m.group(1).upper().replace("L2A", "L2a").replace("L2B", "L2b")
+    return None

@@ -21,6 +21,7 @@ from ..core.parser import GroupAnalysis, FileRecord, analyze, analyze_group, sca
 from ..core.queue_items import QueueRequest
 from .base import ThemedWindow
 from .dialogs import RecipePreviewDialog, text_dialog
+from .queue_bridge import dump_recipes
 from .models import FileTableModel, GroupTableModel, ObjectRole
 from .widgets.themed import Chip, ElidedLabel, Panel, SectionLabel, section
 from .widgets.workers import JobRunner
@@ -560,20 +561,12 @@ class ParserWindow(ThemedWindow):
         if not handled and self.queue_handler is None:
             self._default_queue(req)
 
-    def _default_queue(self, req: QueueRequest):
+    def _default_queue(self, req: QueueRequest, folder: str | None = None):
         """No console attached yet: write the recipes as JSON into <outputdir>/recipes/."""
-        folder = os.path.join(req.outputdir, "recipes")
-        self.backend.makedirs(folder)
-        stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-        written = []
-        for ci, chain in enumerate(req.chains):
-            for ri, r in enumerate(chain):
-                name = f"{stamp}_{ci + 1:02d}_{ri + 1:02d}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', r.name)}.json"
-                path = os.path.join(folder, name)
-                r.save(path)
-                written.append(path)
-        self.log_line(f"no Status Console attached; wrote {len(written)} recipe file{'s' if len(written) != 1 else ''} to {folder}")
-        self.statusBar().showMessage(f"Wrote {len(written)} recipes to {folder}", 8000)
+        written = dump_recipes(req, folder, self.backend)
+        where = os.path.dirname(written[0]) if written else folder
+        self.log_line(f"no Status Console attached; wrote {len(written)} recipe file{'s' if len(written) != 1 else ''} to {where}")
+        self.statusBar().showMessage(f"Wrote {len(written)} recipes to {where}", 8000)
 
     def save_all_recipes(self):
         rows = [a for a in self.group_model.rows if a.chains]
@@ -581,7 +574,7 @@ class ParserWindow(ThemedWindow):
             return
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "Folder for recipe files", self.outputdir or self._last_dir)
         if d:
-            self._default_queue(QueueRequest([c for a in rows for c in a.chains], d, source="parser"))
+            self._default_queue(QueueRequest([c for a in rows for c in a.chains], d, source="parser"), folder=d)
 
     def browse_outputdir(self):
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "Output directory", self.outputdir or self._last_dir)
