@@ -21,6 +21,7 @@ from .recipes import Recipe
 __all__ = [
     "DISPLAY_KEYS", "GROUP_KEYS", "FileRecord", "Facts", "Recommendation", "FileGroup",
     "scan_files", "group_files", "recommend", "build_recipes", "normalize_chains",
+    "GroupAnalysis", "analyze_group", "analyze",
 ]
 
 #: header keywords worth a column in the file table (ext header first, then primary)
@@ -324,3 +325,115 @@ def build_recipes(paths: list[str], outputdir: str, template=None) -> tuple[list
     else:
         chains = [list(c) for c in result]
     return [[Recipe.from_dict(r) for r in chain] for chain in chains], log.getvalue()
+
+
+# --------------------------------------------------------------------------- #
+# full analysis of a set of files (what the Parser window runs in a thread)
+# --------------------------------------------------------------------------- #
+@dataclass
+class GroupAnalysis:
+    group: FileGroup
+    recommendation: Recommendation | None = None
+    chains: list[list[Recipe]] | None = None   # populated recipes, if they could be built
+    status: str = "pending"                    # pending | working | ok | warn | err
+    message: str = ""
+    override: str | None = None                # template name or path chosen by the user
+    log: str = ""
+
+    @property
+    def recipe_summary(self) -> str:
+        if self.chains:
+            return " | ".join(" → ".join(r.name for r in chain) for chain in self.chains)
+        if self.recommendation:
+            return self.recommendation.summary()
+        return ""
+
+    def flat_recipes(self) -> list[Recipe]:
+        return [r for chain in (self.chains or []) for r in chain]
+
+
+def _calib_report(chains: list[list[Recipe]]) -> tuple[int, int]:
+    """(optional calibs resolved to None, steps marked skip) across populated recipes."""
+    optional_missing = 0
+    skipped = 0
+    for chain in chains:
+        for r in chain:
+            for s in r.steps:
+                if s.skip:
+                    skipped += 1
+                for label, spec in (s.calibs or {}).items():
+                    if spec is None:
+                        optional_missing += 1
+    return optional_missing, skipped
+
+
+def describe_exception(exc: BaseException) -> str:
+    """One line for the group table: the exception plus, when it happened while the walker
+    was resolving a calibration, which step, calibration type and file were involved."""
+    head = f"{type(exc).__name__}: {exc}".strip().splitlines()[0][:300]
+    step = calib = path = None
+    for frame, _lineno in traceback.walk_tb(exc.__traceback__):
+        fn = frame.f_code.co_name
+        loc = frame.f_locals
+        if fn == "_fill_in_calib_files":
+            st = loc.get("step")
+            step = st.get("name") if isinstance(st, dict) else None
+            calib = loc.get("calib")
+        elif fn == "get_calib" and "calib_filepath" in loc:
+            path = loc.get("calib_filepath")
+    if calib or step:
+        ctx = f"while resolving {calib or 'a calibration'}"
+        if step:
+            ctx += f" for {step}"
+        if path:
+            ctx += f" ({path})"
+        return f"{head} {ctx}"
+    return head
+
+
+def analyze_group(group: FileGroup, outputdir: str, override: str | None = None) -> GroupAnalysis:
+    """Recommend (or apply an override) and build populated recipes for one group."""
+    ga = GroupAnalysis(group, override=override)
+    if group.key[0] == "unreadable":
+        ga.status, ga.message = "err", "files could not be read as FITS"
+        return ga
+    if override:
+        ga.recommendation = Recommendation([[os.path.basename(override)]], False, compute_facts(group.files),
+                                           reason=f"chosen manually: {os.path.basename(override)}")
+    else:
+        ga.recommendation = recommend(group)
+        if not ga.recommendation.ok:
+            ga.status = "err"
+            ga.message = (ga.recommendation.error or "no recommendation").strip().splitlines()[-1]
+            return ga
+    try:
+        ga.chains, ga.log = build_recipes(group.paths, outputdir, template=override)
+    except Exception as exc:  # noqa: BLE001 - corgidrp raises ValueError for missing calibs, among others
+        ga.status = "err"
+        ga.message = describe_exception(exc)
+        ga.log = traceback.format_exc()
+        return ga
+    missing, skipped = _calib_report(ga.chains)
+    if skipped:
+        ga.status, ga.message = "warn", f"{skipped} step{'s' if skipped != 1 else ''} will be skipped (missing calibration)"
+    elif missing:
+        ga.status, ga.message = "warn", f"{missing} optional calibration{'s' if missing != 1 else ''} missing"
+    else:
+        n = sum(len(c) for c in ga.chains)
+        ga.status, ga.message = "ok", f"calibrations resolved · {n} recipe{'s' if n != 1 else ''}"
+    return ga
+
+
+def analyze(records: list[FileRecord], outputdir: str, overrides: dict[tuple, str] | None = None,
+            progress=None) -> list[GroupAnalysis]:
+    """Group the records and analyze every group. ``progress(i, n, label)`` per group."""
+    overrides = overrides or {}
+    groups = group_files(records)
+    out = []
+    for i, g in enumerate(groups):
+        if progress:
+            progress(i, len(groups), g.label)
+        out.append(analyze_group(g, outputdir, overrides.get(g.key)))
+    if progress:
+        progress(len(groups), len(groups), "done")
+    return out

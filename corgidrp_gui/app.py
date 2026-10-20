@@ -31,11 +31,35 @@ def make_app(argv: list[str] | None = None, theme: str | None = None,
     return app
 
 
+class ToolWindows:
+    """Creates each tool window once and raises it on later requests."""
+
+    def __init__(self, launcher):
+        self.launcher = launcher
+        self.windows: dict[str, QtWidgets.QMainWindow] = {}
+        launcher.set_tool_handler("parser", self.open_parser)
+
+    def _show(self, key, factory):
+        win = self.windows.get(key)
+        if win is None:
+            win = factory()
+            self.windows[key] = win
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        return win
+
+    def open_parser(self):
+        from .ui.parser_window import ParserWindow
+        return self._show("parser", ParserWindow)
+
+
 def main(argv: list[str] | None = None) -> int:
     from .ui.launcher import LauncherWindow
 
     app = make_app(argv)
     win = LauncherWindow()
+    win.tools = ToolWindows(win)
     win.show()
     return app.exec()
 

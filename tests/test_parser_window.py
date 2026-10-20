@@ -1,0 +1,106 @@
+"""Recipe Parser window, offscreen, on real mock L1 files."""
+import json
+import os
+
+import pytest
+
+pytest.importorskip("qtpy")
+
+
+@pytest.fixture(scope="module")
+def app(tmp_path_factory):
+    from qtpy import QtCore
+    QtCore.QSettings.setDefaultFormat(QtCore.QSettings.Format.IniFormat)
+    QtCore.QSettings.setPath(QtCore.QSettings.Format.IniFormat, QtCore.QSettings.Scope.UserScope,
+                             str(tmp_path_factory.mktemp("qsettings")))
+    from corgidrp_gui.app import make_app
+    return make_app([], restore=False)
+
+
+@pytest.fixture
+def tiny_template(tmp_path):
+    p = tmp_path / "tiny_template.json"
+    p.write_text(json.dumps({"name": "tiny", "template": True, "drpconfig": {}, "inputs": [], "outputdir": "",
+                             "steps": [{"name": "discard_setup_frames", "keywords": {"keywords_to_check": ["ISACQ"]}},
+                                       {"name": "save"}]}))
+    return str(p)
+
+
+def test_core_analyze_with_override(mock_l1_files, tiny_template, tmp_path):
+    from corgidrp_gui.core.parser import analyze, scan_files
+    recs = scan_files(mock_l1_files)
+    res = analyze(recs, str(tmp_path / "out"), overrides={})
+    assert len(res) == 1 and res[0].status in ("ok", "warn", "err") and res[0].message
+    assert res[0].recommendation.chains == [["l1_to_l2a_basic.json"]]
+    res = analyze(recs, str(tmp_path / "out"), overrides={res[0].group.key: tiny_template})
+    a = res[0]
+    assert a.status == "ok", a.message
+    assert a.override == tiny_template and a.chains[0][0].inputs == mock_l1_files
+    assert "chosen manually" in a.recommendation.reason
+
+
+def test_parser_window_end_to_end(app, mock_l1_files, tiny_template, tmp_path):
+    from corgidrp_gui.ui.parser_window import ParserWindow
+    from corgidrp_gui.core.queue_items import QueueRequest
+    out = tmp_path / "reduced"
+    win = ParserWindow()
+    win.show()
+    win.outputdir_edit.setText(str(out))
+    assert not win.queue_all_btn.isEnabled()
+
+    win.add_files(mock_l1_files)
+    assert win.jobs.wait_idle(120000)
+    assert win.file_model.rowCount() == 2
+    assert win.group_model.rowCount() == 1
+    a = win.group_model.rows[0]
+    assert a.group.label.startswith("L1") and a.recommendation.chains == [["l1_to_l2a_basic.json"]]
+    assert "DATALVL = L1" in win.why.toPlainText()
+    # files of the selected group are highlighted
+    assert len(win.file_view.selectionModel().selectedRows()) == 2
+
+    # manual override to a calibration-free template -> runnable
+    win.group_view.selectRow(0)
+    win.set_override(tiny_template)
+    assert win.jobs.wait_idle(120000)
+    a = win.group_model.rows[0]
+    assert a.status == "ok" and a.override == tiny_template, a.message
+    assert win.queue_all_btn.isEnabled() and win.preview_btn.isEnabled()
+    assert "(manual)" in win.group_model.data(win.group_model.index(0, 3))
+
+    # queue: signal carries a QueueRequest; default handler writes JSON files
+    got = []
+    win.recipes_queued.connect(got.append)
+    win.queue_all()
+    assert len(got) == 1 and isinstance(got[0], QueueRequest)
+    req = got[0]
+    assert req.n_recipes == 1 and req.outputdir == str(out) and req.chains[0][0].inputs == mock_l1_files
+    files = os.listdir(out / "recipes")
+    assert len(files) == 1 and files[0].endswith("_tiny.json")
+    saved = json.load(open(out / "recipes" / files[0]))
+    assert saved["steps"][0]["name"] == "discard_setup_frames" and saved["outputdir"] == str(out)
+
+    # a custom queue handler replaces the file dump
+    seen = []
+    win.queue_handler = lambda r: seen.append(r) or True
+    win.queue_selected()
+    assert len(seen) == 1
+
+    # adding the same files again is a no-op; removing clears groups
+    win.add_files(mock_l1_files)
+    assert win.file_model.rowCount() == 2
+    win.clear_files()
+    assert win.group_model.rowCount() == 0 and not win.queue_all_btn.isEnabled()
+    win.close()
+
+
+@pytest.mark.parametrize("key", ["roman", "console", "neon", "homepage"])
+def test_parser_window_under_every_theme(app, key):
+    from corgidrp_gui import theming
+    from corgidrp_gui.ui.parser_window import ParserWindow
+    theming.theme_manager().set_theme(key, persist=False)
+    win = ParserWindow()
+    win.show()
+    app.processEvents()
+    assert win.isVisible()
+    win.close()
+    theming.theme_manager().set_theme("roman", persist=False)
