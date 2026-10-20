@@ -12,8 +12,14 @@ Tools:
   folder so the plain walker picks them up too.
 - **Status Console** - a queue of recipes, per-step progress read from the walker's own
   console output, logs and tracebacks.
+- **Calibration DB** - browse the CalDB, scan folders, add/remove entries, and see which file
+  `get_calib` would pick for a given frame.
 - **Themes** - whole style systems (palette, type, shape, outline density, shading,
   density), selectable at runtime.
+
+![Recipe Parser](docs/screenshots/roman_parser.png)
+
+Docs: [user guide](docs/user_guide.md) · [running on a server with xpra](docs/remote_xpra.md) · [developer notes](docs/developing.md) · [changelog](CHANGELOG.md)
 
 Design document: https://claude.ai/artifact/7YrhdbQVzsr1ZNKWgrQf9P
 
@@ -21,7 +27,7 @@ Design document: https://claude.ai/artifact/7YrhdbQVzsr1ZNKWgrQf9P
 
     conda activate corgidrp          # an environment where corgidrp imports
     pip install -e ".[dev]"
-    corgidrp-gui
+    corgidrp-gui                      # --help for --theme, --tool, --files, --recipe, --queue
 
 ## Layout
 

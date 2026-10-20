@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "corgidrp_gui"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Desktop GUI wrapper around corgidrp: recipe parser, recipe builder, status console"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -99,13 +99,41 @@ class ToolWindows:
             p._fill_override_combo()
 
 
+def parse_args(argv: list[str] | None = None):
+    import argparse
+
+    from . import __version__
+    ap = argparse.ArgumentParser(prog="corgidrp-gui", description="Desktop GUI wrapper around corgidrp.")
+    ap.add_argument("--version", action="version", version=f"corgidrp_gui {__version__}")
+    ap.add_argument("--theme", metavar="NAME", help="start with this theme for this session only (roman, console, neon, homepage, or a .toml path)")
+    ap.add_argument("--tool", choices=["parser", "builder", "console", "caldb"], action="append",
+                    help="open this tool at startup as well as the launcher (repeatable)")
+    ap.add_argument("--recipe", metavar="JSON", action="append", help="open this recipe file in the Builder")
+    ap.add_argument("--files", metavar="FITS", nargs="+", help="load these FITS files into the Parser")
+    ap.add_argument("--queue", metavar="JSON", action="append", help="queue this recipe file in the Status Console")
+    return ap.parse_args(argv)
+
+
 def main(argv: list[str] | None = None) -> int:
     from .ui.launcher import LauncherWindow
 
-    app = make_app(argv)
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    app = make_app([sys.argv[0]], theme=args.theme)
     win = LauncherWindow()
-    win.tools = ToolWindows(win)
+    win.tools = tools = ToolWindows(win)
     win.show()
+    for key in args.tool or []:
+        {"parser": tools.open_parser, "builder": tools.open_builder, "console": tools.open_console, "caldb": tools.open_caldb}[key]()
+    if args.files:
+        tools.open_parser().add_files(list(args.files))
+    for path in args.recipe or []:
+        from .core.recipes import Recipe
+        tools.open_builder().load_recipe(Recipe.load(path))
+    if args.queue:
+        from .core.queue_items import QueueRequest
+        from .core.recipes import Recipe
+        recipes = [Recipe.load(p) for p in args.queue]
+        tools.open_console().enqueue(QueueRequest(chains=[[r] for r in recipes], outputdir=recipes[0].outputdir, source="file"))
     return app.exec()
 
 
