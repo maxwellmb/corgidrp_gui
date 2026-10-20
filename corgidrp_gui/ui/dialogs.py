@@ -255,3 +255,92 @@ class ValueEditorDialog(QtWidgets.QDialog):
         except (TypeError, ValueError):
             ok = " — cannot be written to recipe JSON"
         self.status.setText(f"Will be stored as: {msg}{ok}")
+
+
+class CalibChooserDialog(QtWidgets.QDialog):
+    """Pick a calibration file: the CalDB entries of the right type first, or browse."""
+
+    def __init__(self, label: str, parent=None, start_dir: str | None = None):
+        super().__init__(parent)
+        from ..core import caldb_info
+        self._ci = caldb_info
+        self.label = label
+        self.path: str | None = None
+        self.setWindowTitle(f"Choose a {label} file")
+        self.resize(900, 460)
+        self._rows_all = caldb_info.read_caldb()
+        lay = QtWidgets.QVBoxLayout(self)
+        top = QtWidgets.QHBoxLayout()
+        self.info = QtWidgets.QLabel()
+        top.addWidget(self.info, 1)
+        self.all_cb = QtWidgets.QCheckBox("Show every type")
+        self.all_cb.toggled.connect(self._fill)
+        top.addWidget(self.all_cb)
+        lay.addLayout(top)
+        self.table = QtWidgets.QTableWidget(0, 3 + len(caldb_info.DISPLAY_COLUMNS))
+        self.table.setHorizontalHeaderLabels(["File", "Created"] + caldb_info.DISPLAY_COLUMNS + ["Folder"])
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.itemDoubleClicked.connect(lambda _it: self.accept())
+        self.table.itemSelectionChanged.connect(self._sync_ok)
+        lay.addWidget(self.table, 1)
+        row = QtWidgets.QHBoxLayout()
+        browse = QtWidgets.QPushButton("Browse for another file…")
+        browse.clicked.connect(self.browse)
+        row.addWidget(browse)
+        row.addStretch(1)
+        self.bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        self.bb.accepted.connect(self.accept)
+        self.bb.rejected.connect(self.reject)
+        row.addWidget(self.bb)
+        lay.addLayout(row)
+        self._start_dir = start_dir or caldb_info.suggest_dir(label, self._rows_all)
+        self._fill()
+
+    def _fill(self, *_):
+        ci = self._ci
+        rows = ci.entries_for(None if self.all_cb.isChecked() else self.label, self._rows_all)
+        t = ci.caldb_type_for_label(self.label)
+        self.info.setText(f"{len(rows)} CalDB entr{'ies' if len(rows) != 1 else 'y'}"
+                          + ("" if self.all_cb.isChecked() else f" of type {t}") + f" in {ci.caldb_path()}")
+        self.table.setRowCount(0)
+        for r in rows:
+            i = self.table.rowCount()
+            self.table.insertRow(i)
+            vals = [r["Filename"], ci.mjd_to_iso(r.get("Date Created"))] + [r.get(c, "") for c in ci.DISPLAY_COLUMNS] + [r["Folder"]]
+            for c, v in enumerate(vals):
+                it = QtWidgets.QTableWidgetItem(str(v))
+                if c == 0:
+                    it.setData(QtCore.Qt.ItemDataRole.UserRole, r.get("Filepath"))
+                    it.setToolTip(r.get("Filepath", ""))
+                if not r["exists"]:
+                    it.setForeground(QtGui.QColor("#b00000"))
+                    it.setToolTip("file is missing on disk")
+                self.table.setItem(i, c, it)
+        self.table.resizeColumnsToContents()
+        if self.table.rowCount():
+            self.table.selectRow(0)
+        self._sync_ok()
+
+    def _sync_ok(self):
+        self.bb.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setEnabled(bool(self.table.selectedItems()))
+
+    def selected_path(self) -> str | None:
+        items = self.table.selectedItems()
+        if not items:
+            return None
+        return self.table.item(items[0].row(), 0).data(QtCore.Qt.ItemDataRole.UserRole)
+
+    def browse(self):
+        p, _ = QtWidgets.QFileDialog.getOpenFileName(self, f"Choose a {self.label} file", self._start_dir, "FITS (*.fits);;All files (*)")
+        if p:
+            self.path = p
+            QtWidgets.QDialog.accept(self)
+
+    def accept(self):
+        self.path = self.selected_path()
+        if self.path:
+            super().accept()

@@ -728,11 +728,12 @@ class BuilderWindow(ThemedWindow):
         text = cb.currentText().strip()
         label, old = items[j]
         if text == _SPEC_CHOICES[3]:
-            path, _ = QtWidgets.QFileDialog.getOpenFileName(self, f"Choose a {label} file", self._last_dir, "FITS (*.fits);;All files (*)")
-            if not path:
+            from .dialogs import CalibChooserDialog
+            dlg = CalibChooserDialog(label, self)
+            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted or not dlg.path:
                 cb.setCurrentText(self._spec_display(old))
                 return
-            text = path
+            text = dlg.path
         new = None if text.startswith("None") else text
         if new == old:
             return
