@@ -40,6 +40,7 @@ class ToolWindows:
         launcher.set_tool_handler("parser", self.open_parser)
         launcher.set_tool_handler("builder", self.open_builder)
         launcher.set_tool_handler("console", self.open_console)
+        launcher.set_tool_handler("caldb", self.open_caldb)
         launcher.catalog_rebuilt.connect(self._on_catalog_rebuilt)
 
     def _show(self, key, factory):
@@ -79,6 +80,10 @@ class ToolWindows:
             w.builder_handler = lambda recipe: self.open_builder().load_recipe(recipe)
             return w
         return self._show("console", factory)
+
+    def open_caldb(self):
+        from .ui.caldb_window import CalDBWindow
+        return self._show("caldb", CalDBWindow)
 
     def _queue(self, req) -> bool:
         """Parser/Builder queue handler: hand the request to the console and show it."""
