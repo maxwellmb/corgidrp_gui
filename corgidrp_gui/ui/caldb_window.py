@@ -110,6 +110,7 @@ class CalDBWindow(ThemedWindow):
         self._act(m, "Scan folder for calibration files…", self.scan_folder_dialog)
         self._act(m, "Add files…", self.add_files_dialog, "Ctrl+O")
         self._act(m, "Remove selected entries", self.remove_selected, "Delete")
+        self._act(m, "Remove entries whose file is missing", self.remove_missing)
         m.addSeparator()
         self._act(m, "Open CalDB CSV", lambda: self._open_path(self.path()))
         self._act(m, "Close", self.close, "Ctrl+W")
@@ -164,6 +165,10 @@ class CalDBWindow(ThemedWindow):
         self.missing_cb = QtWidgets.QCheckBox("Only entries whose file is missing")
         self.missing_cb.toggled.connect(self._apply_filter)
         frow.addWidget(self.missing_cb)
+        self.exclude_missing_btn = QtWidgets.QPushButton("Remove missing entries")
+        self.exclude_missing_btn.setToolTip("Drop every entry whose FITS file no longer exists on disk")
+        self.exclude_missing_btn.clicked.connect(self.remove_missing)
+        frow.addWidget(self.exclude_missing_btn)
         tpanel.layout().addLayout(frow)
         self.table = QtWidgets.QTableView()
         self.table.setModel(self.proxy)
@@ -291,6 +296,8 @@ class CalDBWindow(ThemedWindow):
             self.which_type.setCurrentText(curw)
         self._apply_filter()
         self.table.resizeColumnsToContents()
+        self.exclude_missing_btn.setEnabled(missing > 0)
+        self.exclude_missing_btn.setText(f"Remove {missing} missing entr{'ies' if missing != 1 else 'y'}" if missing else "Remove missing entries")
         self._update_buttons()
 
     def _apply_filter(self, *_):
@@ -370,6 +377,21 @@ class CalDBWindow(ThemedWindow):
         if r != QtWidgets.QMessageBox.StandardButton.Yes:
             return
         self.remove_paths(paths)
+
+    def missing_paths(self) -> list[str]:
+        return [r["Filepath"] for r in self.model.rows if not r.get("exists")]
+
+    def remove_missing(self):
+        paths = self.missing_paths()
+        if not paths:
+            self.statusBar().showMessage("Every entry's file exists; nothing to remove", 5000)
+            return
+        names = "\n".join(os.path.basename(p) for p in paths[:8]) + ("\n…" if len(paths) > 8 else "")
+        r = QtWidgets.QMessageBox.question(
+            self, "Remove missing entries",
+            f"Remove {len(paths)} entr{'ies' if len(paths) != 1 else 'y'} whose file no longer exists?\n\n{names}")
+        if r == QtWidgets.QMessageBox.StandardButton.Yes:
+            self.remove_paths(paths)
 
     def remove_paths(self, paths: list[str]):
         self._busy(True, "removing")

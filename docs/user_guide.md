@@ -155,6 +155,7 @@ onto the window or added from the Queue menu; they need inputs and an output dir
 The table is corgidrp's CalDB CSV: file, type, created and observed dates, exposure time, EM
 gain, filter and mask names, DRP version, number of input files. Filter by type, search any
 column, sort by any header, or show only entries whose file is missing on disk (drawn in red).
+*Remove missing entries* drops all of those at once, after confirmation.
 
 *Scan folder…* runs corgidrp's own `scan_dir_for_new_entries`. *Add files…* adds specific
 products and rejects anything that is not a calibration type. *Remove selected* drops rows

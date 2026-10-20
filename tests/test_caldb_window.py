@@ -59,7 +59,8 @@ def test_ops_on_temp_caldb(tmp_path, flat_files, mock_l1_files):
         os.rename(flats[1] + ".moved", flats[1])
 
 
-def test_caldb_window(app, tmp_path, flat_files, mock_l1_files):
+def test_caldb_window(app, tmp_path, flat_files, mock_l1_files, monkeypatch):
+    from qtpy import QtWidgets
     from corgidrp_gui.core import caldb_ops
     from corgidrp_gui.ui.caldb_window import CalDBWindow
     folder, flats = flat_files
@@ -88,4 +89,17 @@ def test_caldb_window(app, tmp_path, flat_files, mock_l1_files):
     win.add_files([flats[0]])
     assert win.jobs.wait_idle(120000)
     assert win.model.rowCount() == 2
+    # "remove missing": move a file away, reload, the button lights up and drops that row
+    assert not win.exclude_missing_btn.isEnabled()
+    os.rename(flats[1], flats[1] + ".moved")
+    try:
+        win.reload()
+        assert win.missing_paths() == [flats[1]] and win.exclude_missing_btn.isEnabled()
+        assert "Remove 1 missing entry" == win.exclude_missing_btn.text()
+        monkeypatch.setattr(QtWidgets.QMessageBox, "question", staticmethod(lambda *a, **k: QtWidgets.QMessageBox.StandardButton.Yes))
+        win.remove_missing()
+        assert win.jobs.wait_idle(120000)
+        assert win.model.rowCount() == 1 and win.missing_paths() == [] and not win.exclude_missing_btn.isEnabled()
+    finally:
+        os.rename(flats[1] + ".moved", flats[1])
     win.close()
