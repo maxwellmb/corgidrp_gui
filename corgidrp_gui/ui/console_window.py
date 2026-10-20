@@ -241,7 +241,7 @@ class ConsoleWindow(ThemedWindow):
         kv.setColumnStretch(1, 1)
         cpanel.layout().addLayout(kv)
         crow = QtWidgets.QHBoxLayout()
-        for text, slot in (("Recipe JSON", self.view_recipe), ("Log & traceback", self.show_details),
+        for text, slot in (("Recipe JSON", self.view_recipe), ("Log && traceback", self.show_details),
                            ("Open output folder", self.open_output_folder), ("Copy command", self.copy_command)):
             b = QtWidgets.QPushButton(text)
             b.clicked.connect(lambda _=False, s=slot: s())
@@ -369,6 +369,8 @@ class ConsoleWindow(ThemedWindow):
         if pkg_root not in pp.split(os.pathsep):
             env.insert("PYTHONPATH", pkg_root + (os.pathsep + pp if pp else ""))
         proc.setProcessEnvironment(env)
+        # one pipe for stdout+stderr keeps tracebacks in order with the walker's prints
+        proc.setProcessChannelMode(QtCore.QProcess.ProcessChannelMode.MergedChannels)
         proc.setProgram(cmd[0])
         proc.setArguments(cmd[1:])
         proc.setWorkingDirectory(job.outputdir if self.backend.isdir(job.outputdir) else self.backend.home())
@@ -686,6 +688,7 @@ class ConsoleWindow(ThemedWindow):
                 self.abort(j)
             for p in list(self._procs.values()):
                 p.waitForFinished(5000)
+        self._timer.stop()
         self.queue.save()
         self.settings.setValue("console/geometry", self.saveGeometry())
         super().closeEvent(event)
