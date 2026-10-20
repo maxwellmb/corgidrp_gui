@@ -172,3 +172,23 @@ def test_save_template_queue_and_parser_handoff(builder, mock_l1_files, tmp_path
     w._refresh_issues()
     w.queue_recipe()
     assert len(got) == 1 and warned and "no keyword argument 'bad'" in warned[0]
+
+
+def test_value_popout_dialog(app, catalog):
+    from corgidrp_gui.ui.dialogs import ValueEditorDialog
+    from corgidrp_gui.ui.builder_models import needs_popout
+    from corgidrp_gui.core.steps import MISSING
+    spec = catalog.get("prescan_biassub").arg("detector_regions")
+    assert spec is not None
+    regions = {"SCI": {"image": {"rows": 1024, "cols": 1024, "r0c0": [13, 1088]}}}
+    assert needs_popout(spec, regions) and not needs_popout(spec, None)
+    assert needs_popout(catalog.get("discard_setup_frames").arg("keywords_to_check"), ["ISACQ"])
+    d = ValueEditorDialog("detector_regions", regions, None, "dict", "detector geometry")
+    assert '"rows": 1024' in d.text() and "dict with 1 key" in d.status.text()
+    d.edit.setPlainText('{"SCI": {"image": {"rows": 2048}}, ')
+    assert "not valid JSON" in d.status.text()
+    d.edit.setPlainText("{'a': (1, 2)}")
+    d.reformat()
+    assert d.value() == {"a": [1, 2]} and d.text().startswith("{\n")
+    d.edit.setPlainText("")
+    assert d.value() is MISSING and "default" in d.status.text()

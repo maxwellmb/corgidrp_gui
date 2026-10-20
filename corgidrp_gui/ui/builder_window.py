@@ -22,7 +22,7 @@ from ..core.recipes import Issue, Recipe, RecipeStep, guess_start_level, validat
 from ..core.steps import SAVE_STEP_NAME, StepCatalog
 from .base import ThemedWindow
 from .builder_models import (ArgTableModel, CatalogFilter, RecipeStepsModel, RecipeStepsView,
-                             StepCatalogModel, StepInfoRole, ValueDelegate)
+                             StepCatalogModel, StepInfoRole, ValueDelegate, needs_popout)
 from .dialogs import InputsDialog, RecipePreviewDialog, text_dialog
 from .queue_bridge import dump_recipes
 from .widgets.themed import Chip, ElidedLabel, Panel, SectionLabel
@@ -68,6 +68,7 @@ class BuilderWindow(ThemedWindow):
         m = self.add_menu("&File")
         self._act(m, "New recipe", self.new_recipe, "Ctrl+N")
         self._act(m, "Open recipe…", self.open_recipe_dialog, "Ctrl+O")
+        self._act(m, "Add input files…", self.add_input_files_dialog, "Ctrl+I")
         self.template_menu = m.addMenu("New from template")
         self._fill_template_menu()
         m.addSeparator()
@@ -220,7 +221,9 @@ class BuilderWindow(ThemedWindow):
         insp_panel.layout().addWidget(SectionLabel("Keyword arguments"))
         self.args_view = QtWidgets.QTableView()
         self.args_view.setModel(self.args_model)
-        self.args_view.setItemDelegateForColumn(1, ValueDelegate(self.args_view))
+        self.value_delegate = ValueDelegate(self.args_view)
+        self.value_delegate.popout_requested.connect(self.edit_arg_in_window)
+        self.args_view.setItemDelegateForColumn(1, self.value_delegate)
         self.args_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.args_view.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.args_view.verticalHeader().setVisible(False)
@@ -234,6 +237,10 @@ class BuilderWindow(ThemedWindow):
             ah.resizeSection(c, w)
         insp_panel.layout().addWidget(self.args_view, 2)
         arow = QtWidgets.QHBoxLayout()
+        self.popout_btn = QtWidgets.QPushButton("Edit in window…")
+        self.popout_btn.setToolTip("Multi-line editor for dicts, lists and long strings (also opens automatically for those)")
+        self.popout_btn.clicked.connect(lambda: self.edit_arg_in_window(self.args_view.currentIndex()))
+        arow.addWidget(self.popout_btn)
         self.reset_arg_btn = QtWidgets.QPushButton("Reset argument")
         self.reset_arg_btn.clicked.connect(self.reset_selected_arg)
         self.reset_all_btn = QtWidgets.QPushButton("Reset all to defaults")
@@ -254,9 +261,17 @@ class BuilderWindow(ThemedWindow):
         self.inputs_label = ElidedLabel("no inputs")
         g.addWidget(QtWidgets.QLabel("Inputs"), 0, 0)
         g.addWidget(self.inputs_label, 0, 1)
-        ib = QtWidgets.QPushButton("Edit…")
+        ibox = QtWidgets.QHBoxLayout()
+        ibox.setContentsMargins(0, 0, 0, 0)
+        addb = QtWidgets.QPushButton("Add files…")
+        addb.setToolTip("Append FITS files to the recipe's inputs (Ctrl+I)")
+        addb.clicked.connect(self.add_input_files_dialog)
+        ib = QtWidgets.QPushButton("Edit list…")
+        ib.setToolTip("Review, add or remove input files")
         ib.clicked.connect(self.edit_inputs)
-        g.addWidget(ib, 0, 2)
+        ibox.addWidget(addb)
+        ibox.addWidget(ib)
+        g.addLayout(ibox, 0, 2)
         g.addWidget(QtWidgets.QLabel("Output dir"), 1, 0)
         self.outputdir_edit = QtWidgets.QLineEdit()
         self.outputdir_edit.editingFinished.connect(self._on_outputdir_edited)
@@ -576,6 +591,23 @@ class BuilderWindow(ThemedWindow):
             self.outputdir_edit.setText(d)
             self._on_outputdir_edited()
 
+    def add_input_files_dialog(self):
+        paths, _ = QtWidgets.QFileDialog.getOpenFileNames(self, "Add input files", self._last_dir,
+                                                          "FITS files (*.fits *.fit *.fits.gz);;All files (*)")
+        if paths:
+            self._last_dir = os.path.dirname(paths[0])
+            self.add_inputs(paths)
+
+    def add_inputs(self, paths: list[str]):
+        new = [p for p in paths if p not in self.recipe.inputs]
+        if not new:
+            return
+        self._snapshot()
+        self.recipe.inputs.extend(new)
+        self._on_recipe_changed()
+        self._refresh_header()
+        self.statusBar().showMessage(f"Added {len(new)} input file{'s' if len(new) != 1 else ''}; {len(self.recipe.inputs)} total", 6000)
+
     def edit_inputs(self):
         dlg = InputsDialog(self.recipe.inputs, self, self._last_dir)
         if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
@@ -709,6 +741,19 @@ class BuilderWindow(ThemedWindow):
         self._set_calib_items(step, items)
         self.steps_model.notify_step_changed(rows[0])
         cb.setCurrentText(self._spec_display(new))
+
+    def edit_arg_in_window(self, index):
+        """Pop-out editor for the argument at ``index`` (any column of its row)."""
+        if index is None or not index.isValid() or self.args_model.step is None:
+            return
+        from .dialogs import ValueEditorDialog
+        spec = self.args_model.rows[index.row()]
+        value, _explicit = self.args_model.current_value(spec)
+        dlg = ValueEditorDialog(spec.name, value, spec.default, spec.type_str, spec.description, self)
+        if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        self._snapshot()
+        self.args_model.setData(self.args_model.index(index.row(), 1), dlg.text(), Qt.ItemDataRole.EditRole)
 
     def reset_selected_arg(self):
         idx = self.args_view.currentIndex()

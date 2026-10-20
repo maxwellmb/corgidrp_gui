@@ -469,12 +469,31 @@ class ArgTableModel(QtCore.QAbstractTableModel):
         self.value_changed.emit("*")
 
 
+def needs_popout(spec, value) -> bool:
+    """Dicts, lists, tuples and long strings are edited in a window, not a cell."""
+    hint = (spec.type_str or "").lower()
+    if isinstance(value, (dict, list, tuple)):
+        return True
+    if isinstance(spec.default, (dict, list, tuple)):
+        return True
+    if any(k in hint for k in ("dict", "list", "tuple", "array")) and not isinstance(value, (int, float, bool)):
+        return True
+    return isinstance(value, str) and len(value) > 40
+
+
 class ValueDelegate(QtWidgets.QStyledItemDelegate):
-    """Bool arguments get a True/False/None combo; everything else a line edit."""
+    """Bool arguments get a True/False/None combo, complex values a pop-out editor,
+    everything else a line edit."""
+
+    popout_requested = QtCore.Signal(QtCore.QModelIndex)
 
     def createEditor(self, parent, option, index):
         model = index.model()
         spec = model.rows[index.row()]
+        value, _explicit = model.current_value(spec)
+        if needs_popout(spec, value):
+            QtCore.QTimer.singleShot(0, lambda i=QtCore.QPersistentModelIndex(index): self.popout_requested.emit(QtCore.QModelIndex(i)))
+            return None
         hint = (spec.type_str or "").lower()
         if hint.startswith("bool") and not isinstance(spec.default, (int, float)) or isinstance(spec.default, bool):
             cb = QtWidgets.QComboBox(parent)

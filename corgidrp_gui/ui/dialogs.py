@@ -142,3 +142,116 @@ class InputsDialog(QtWidgets.QDialog):
 
     def inputs(self) -> list[str]:
         return [self.list.item(i).text() for i in range(self.list.count())]
+
+
+class ValueEditorDialog(QtWidgets.QDialog):
+    """Multi-line editor for one keyword argument: dicts, lists, long strings.
+
+    The text is parsed the same way as the inline editor (JSON, then Python
+    literal, else string); the status line says what it would become.
+    """
+
+    def __init__(self, name: str, value, default, type_str: str, description: str, parent=None):
+        super().__init__(parent)
+        from ..core.steps import MISSING
+        from ..core.values import format_value
+        self.setWindowTitle(f"Edit {name}")
+        self.resize(640, 460)
+        self._type = type_str or ""
+        self._default = default
+        self._missing = MISSING
+        lay = QtWidgets.QVBoxLayout(self)
+        head = QtWidgets.QLabel(f"<b>{name}</b>" + (f" &nbsp;<i>{type_str}</i>" if type_str else ""))
+        head.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        lay.addWidget(head)
+        if description:
+            d = QtWidgets.QLabel(description)
+            d.setWordWrap(True)
+            lay.addWidget(d)
+        self.edit = QtWidgets.QPlainTextEdit()
+        self.edit.setProperty("role", "log")
+        self.edit.setTabStopDistance(24)
+        self.edit.setPlainText(self._initial_text(value))
+        self.edit.textChanged.connect(self._update_status)
+        lay.addWidget(self.edit, 1)
+        self.status = QtWidgets.QLabel()
+        self.status.setWordWrap(True)
+        lay.addWidget(self.status)
+        row = QtWidgets.QHBoxLayout()
+        fmt = QtWidgets.QPushButton("Format as JSON")
+        fmt.setToolTip("Pretty-print the current text if it parses as JSON or a Python literal")
+        fmt.clicked.connect(self.reformat)
+        row.addWidget(fmt)
+        if default is not MISSING:
+            dflt = QtWidgets.QPushButton("Insert default")
+            dflt.setToolTip(f"Default: {format_value(default)}")
+            dflt.clicked.connect(lambda: self.edit.setPlainText(self._initial_text(default)))
+            row.addWidget(dflt)
+        row.addStretch(1)
+        bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        row.addWidget(bb)
+        lay.addLayout(row)
+        self._update_status()
+
+    @staticmethod
+    def _initial_text(value) -> str:
+        import json
+        from ..core.steps import MISSING
+        if value is MISSING:
+            return ""
+        if isinstance(value, (dict, list, tuple)):
+            try:
+                return json.dumps(value, indent=2)
+            except (TypeError, ValueError):
+                return repr(value)
+        if isinstance(value, str):
+            return value
+        from ..core.values import format_value
+        return format_value(value)
+
+    def text(self) -> str:
+        return self.edit.toPlainText()
+
+    def value(self):
+        """The parsed value (empty text means 'use the default')."""
+        from ..core.values import parse_value
+        t = self.text()
+        if t.strip() == "":
+            return self._missing
+        return parse_value(t, self._type)
+
+    def reformat(self):
+        import json
+        v = self.value()
+        if isinstance(v, (dict, list, tuple)):
+            self.edit.setPlainText(json.dumps(v, indent=2))
+
+    def _update_status(self):
+        import json
+        v = self.value()
+        if v is self._missing:
+            self.status.setText("Empty: the argument goes back to its default.")
+            return
+        kind = type(v).__name__
+        if isinstance(v, dict):
+            msg = f"dict with {len(v)} key{'s' if len(v) != 1 else ''}"
+        elif isinstance(v, (list, tuple)):
+            msg = f"{kind} with {len(v)} item{'s' if len(v) != 1 else ''}"
+        elif isinstance(v, str):
+            msg = f"string ({len(v)} chars)"
+            t = self.text().strip()
+            if t.startswith(("{", "[")):
+                try:
+                    json.loads(t)
+                except ValueError as exc:
+                    msg = f"not valid JSON ({exc}); would be stored as a string"
+        else:
+            msg = kind
+        try:
+            json.dumps(v)
+            ok = ""
+        except (TypeError, ValueError):
+            ok = " — cannot be written to recipe JSON"
+        self.status.setText(f"Will be stored as: {msg}{ok}")

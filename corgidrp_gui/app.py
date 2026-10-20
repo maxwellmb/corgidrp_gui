@@ -39,6 +39,7 @@ class ToolWindows:
         self.windows: dict[str, QtWidgets.QMainWindow] = {}
         launcher.set_tool_handler("parser", self.open_parser)
         launcher.set_tool_handler("builder", self.open_builder)
+        launcher.set_tool_handler("console", self.open_console)
         launcher.catalog_rebuilt.connect(self._on_catalog_rebuilt)
 
     def _show(self, key, factory):
@@ -57,12 +58,32 @@ class ToolWindows:
         def factory():
             w = ParserWindow()
             w.builder_handler = lambda recipe: self.open_builder().load_recipe(recipe)
+            w.queue_handler = self._queue
             return w
         return self._show("parser", factory)
 
     def open_builder(self):
         from .ui.builder_window import BuilderWindow
-        return self._show("builder", BuilderWindow)
+
+        def factory():
+            w = BuilderWindow()
+            w.queue_handler = self._queue
+            return w
+        return self._show("builder", factory)
+
+    def open_console(self):
+        from .ui.console_window import ConsoleWindow
+
+        def factory():
+            w = ConsoleWindow()
+            w.builder_handler = lambda recipe: self.open_builder().load_recipe(recipe)
+            return w
+        return self._show("console", factory)
+
+    def _queue(self, req) -> bool:
+        """Parser/Builder queue handler: hand the request to the console and show it."""
+        self.open_console().enqueue(req)
+        return True
 
     def _on_catalog_rebuilt(self):
         b = self.windows.get("builder")
