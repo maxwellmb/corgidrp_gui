@@ -106,6 +106,7 @@ class ConsoleWindow(ThemedWindow):
         self._bufs: dict[str, dict[str, str]] = {}
         self._aborting: set[str] = set()
         self._shown_job: RecipeJob | None = None
+        self._all_log: list[str] = []          # everything ever shown in the combined log view
         self.model = JobTableModel(self.queue)
         self._build_menus()
         self._build_body()
@@ -266,7 +267,7 @@ class ConsoleWindow(ThemedWindow):
         lrow.addWidget(self.follow_cb)
         lrow.addStretch(1)
         clr = QtWidgets.QPushButton("Clear log view")
-        clr.clicked.connect(lambda: self.log.clear())
+        clr.clicked.connect(self._clear_log_view)
         lrow.addWidget(clr)
         lpanel.layout().addLayout(lrow)
         self.log = QtWidgets.QPlainTextEdit()
@@ -410,10 +411,8 @@ class ConsoleWindow(ThemedWindow):
                 self.log_line(f"[{job.name}] {line}", job)
             elif ev.kind in ("recipe_start", "n_frames", "output", "finished", "runner"):
                 self.log_line(f"[{job.name}] {line}", job)
-            elif self.follow_cb.isChecked() and job is self._shown_job:
-                self.log.appendPlainText(line)
-            elif not self.follow_cb.isChecked():
-                self.log.appendPlainText(f"[{job.name}] {line}")
+            else:
+                self._record(f"[{job.name}] {line}", job, raw=line)
 
     def _on_proc_error(self, job: RecipeJob, proc: QtCore.QProcess, err):
         if err == QtCore.QProcess.ProcessError.FailedToStart:
@@ -558,10 +557,24 @@ class ConsoleWindow(ThemedWindow):
 
     # --------------------------------------------------------------- display
     def log_line(self, text: str, job: RecipeJob | None = None):
-        if self.follow_cb.isChecked() and job is not None and job is not self._shown_job:
-            return
         stamp = _dt.datetime.now().strftime("%H:%M:%S")
-        self.log.appendPlainText(f"{stamp}  {text}")
+        self._record(f"{stamp}  {text}", job)
+
+    def _record(self, text: str, job: RecipeJob | None, raw: str | None = None):
+        """Keep ``text`` in the combined history and show it if the current filter allows."""
+        self._all_log.append(text)
+        if len(self._all_log) > 20000:
+            del self._all_log[:5000]
+        if self.follow_cb.isChecked():
+            if job is not None and job is self._shown_job:
+                self.log.appendPlainText(raw if raw is not None else text)
+        else:
+            self.log.appendPlainText(text)
+
+    def _clear_log_view(self):
+        self.log.clear()
+        if not self.follow_cb.isChecked():
+            self._all_log.clear()
 
     def _on_queue_event(self, event: str, job: RecipeJob | None):
         if event in ("added", "removed", "cleared", "reordered"):
@@ -586,10 +599,13 @@ class ConsoleWindow(ThemedWindow):
             self._reload_log()
 
     def _reload_log(self):
-        if not self.follow_cb.isChecked() or self._shown_job is None:
-            return
-        self.log.clear()
-        self.log.setPlainText("\n".join(self._shown_job.log))
+        """Rebuild the pane for the current filter: one job's own output, or everything."""
+        if self.follow_cb.isChecked():
+            if self._shown_job is None:
+                return
+            self.log.setPlainText("\n".join(self._shown_job.log))
+        else:
+            self.log.setPlainText("\n".join(self._all_log))
         self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())
 
     def _refresh_current(self):

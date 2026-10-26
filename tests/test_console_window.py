@@ -51,6 +51,16 @@ def test_console_runs_chain_and_reports_failure(app, mock_l1_files, tmp_path, mo
     m = win.model
     assert m.data(m.index(0, 4)) == "done" and m.data(m.index(1, 2)) == "2/2"
     assert "Walker step" in win.log.toPlainText()
+    # "show only the selected job" filters, and unticking restores the combined view
+    full = win.log.toPlainText()
+    assert "queued 2 recipes" in full
+    win.table.selectRow(1)
+    win.follow_cb.setChecked(True)
+    only = win.log.toPlainText()
+    assert "queued 2 recipes" not in only and "Walker step 1/2" in only and "[first]" not in only
+    win.follow_cb.setChecked(False)
+    restored = win.log.toPlainText()
+    assert "queued 2 recipes" in restored and "[first]" in restored and "[second]" in restored
     # a saved queue state exists and names both jobs
     state = json.load(open(win.queue.state_path()))
     assert [j["status"] for j in state["jobs"]] == ["done", "done"]
