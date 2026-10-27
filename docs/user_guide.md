@@ -104,7 +104,9 @@ docstring on request.
   means "back to the default". Booleans get a True/False/None chooser. Dicts, lists and long
   strings open a **pop-out editor** automatically (also available for any argument through
   *Edit in window…*), with JSON formatting, live parse status and *Insert default*. Values are
-  parsed as JSON first, then as Python literals, else kept as strings.
+  parsed as JSON first, then as Python literals, else kept as strings. Descriptions are
+  often longer than the column: double-click one (or any column except *Value*) to read
+  it in full in a pop-out window, together with the type, default and current value.
 - *Calibrations*: one row per slot. The type combo lists what templates and docstrings allow
   for that slot; the spec combo chooses `AUTOMATIC` (the CalDB picks), `AUTOMATIC, OPTIONAL`
   (the step runs without it if none matches), `None`, or **Choose file…**, which opens the

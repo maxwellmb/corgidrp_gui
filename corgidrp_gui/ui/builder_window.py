@@ -19,7 +19,8 @@ from ..backend import default_backend
 from ..core import catalog_cache
 from ..core.queue_items import QueueRequest
 from ..core.recipes import Issue, Recipe, RecipeStep, guess_start_level, validate_recipe
-from ..core.steps import SAVE_STEP_NAME, StepCatalog
+from ..core.steps import MISSING, SAVE_STEP_NAME, StepCatalog
+from ..core.values import format_value
 from .base import ThemedWindow
 from .builder_models import (ArgTableModel, CatalogFilter, RecipeStepsModel, RecipeStepsView,
                              StepCatalogModel, StepInfoRole, ValueDelegate, needs_popout)
@@ -230,6 +231,8 @@ class BuilderWindow(ThemedWindow):
         self.args_view.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked
                                        | QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked
                                        | QtWidgets.QAbstractItemView.EditTrigger.EditKeyPressed)
+        self.args_view.doubleClicked.connect(self._args_double_clicked)
+        self.args_view.setToolTip("Double-click a description (or any column but Value) to read it in full")
         ah = self.args_view.horizontalHeader()
         ah.setStretchLastSection(True)
         ah.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
@@ -755,6 +758,36 @@ class BuilderWindow(ThemedWindow):
             return
         self._snapshot()
         self.args_model.setData(self.args_model.index(index.row(), 1), dlg.text(), Qt.ItemDataRole.EditRole)
+
+    def _args_double_clicked(self, index):
+        # Column 1 (Value) starts the in-place editor; every other column opens the
+        # read-only description so long docstring text is not confined to the cell.
+        if index.isValid() and index.column() != 1:
+            self.show_arg_description(index)
+
+    def arg_description_text(self, index) -> str:
+        """Full text for the argument at ``index``: name, type, default, current value, description."""
+        spec = self.args_model.rows[index.row()]
+        value, explicit = self.args_model.current_value(spec)
+        lines = [spec.name + (f"  ({spec.type_str})" if spec.type_str else ""), ""]
+        if spec.default is MISSING:
+            lines.append("Default: (required)")
+        else:
+            lines.append(f"Default: {format_value(spec.default)}")
+        if explicit:
+            lines.append(f"In this recipe: {format_value(value)}")
+        lines.append("")
+        lines.append(spec.description or "(no description in the docstring)")
+        return "\n".join(lines)
+
+    def show_arg_description(self, index=None):
+        """Read-only pop-out with the full description of the argument at ``index``."""
+        if index is None:
+            index = self.args_view.currentIndex()
+        if index is None or not index.isValid() or not self.args_model.rows:
+            return None
+        spec = self.args_model.rows[index.row()]
+        return text_dialog(self, f"Argument: {spec.name}", self.arg_description_text(index), mono=False)
 
     def reset_selected_arg(self):
         idx = self.args_view.currentIndex()

@@ -4,6 +4,8 @@
 
 - Midnight theme: a calm dark theme without glow or neon.
 - CalDB viewer: Remove missing entries button.
+- Status Console: unticking "Show only the selected job" restores the combined log.
+- Recipe Builder: double-click an argument's description to read it in full.
 
 ## 0.1.0 — 2026-10-20
 

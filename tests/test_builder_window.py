@@ -195,3 +195,22 @@ def test_value_popout_dialog(app, catalog):
     d.close()
     d.deleteLater()
     app.processEvents()
+
+
+def test_arg_description_popout(builder, app):
+    from qtpy import QtWidgets
+    w = builder
+    w.load_template("l1_to_l2b.json")
+    w.steps_view.setCurrentIndex(w.steps_model.index(_names(w).index("frame_select")))
+    rows = [r for r in range(w.args_model.rowCount()) if w.args_model.rows[r].description]
+    assert rows, "expected at least one documented argument"
+    idx = w.args_model.index(rows[0], 4)
+    spec = w.args_model.rows[rows[0]]
+    text = w.arg_description_text(idx)
+    assert text.startswith(spec.name) and spec.description in text and "Default:" in text
+    d = w.show_arg_description(idx)
+    assert d is not None and d.windowTitle() == f"Argument: {spec.name}"
+    assert spec.description in d.findChild(QtWidgets.QPlainTextEdit).toPlainText()
+    d.close()
+    d.deleteLater()
+    app.processEvents()
