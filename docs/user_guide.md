@@ -81,6 +81,12 @@ to folder* writes the populated JSON files without running them.
 
 ![Recipe Builder](screenshots/roman_builder.png)
 
+**Starting from a template.** A new Builder opens with an empty recipe. Click *Start from
+template…* (next to the Template label, or Ctrl+T) for a searchable list of every shipped and
+user template with its starting level, step count and a preview of its steps; the filter
+matches template names, levels and step names. *File → New from template* lists the same
+templates as a menu. Either replaces the current recipe, after asking if it has unsaved edits.
+
 **Step catalog** (left). Every step function grouped by pipeline stage, plus the walker's
 `save` instruction. The search box matches step names, argument names and docstring text.
 Selecting a step shows its summary and where it would be inserted: the Builder looks at where

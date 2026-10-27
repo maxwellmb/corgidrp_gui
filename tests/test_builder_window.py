@@ -214,3 +214,32 @@ def test_arg_description_popout(builder, app):
     d.close()
     d.deleteLater()
     app.processEvents()
+
+
+def test_start_from_template_dialog(builder, catalog, app, monkeypatch):
+    from qtpy import QtWidgets
+    from corgidrp_gui.ui.dialogs import TemplateChooserDialog
+    w = builder
+    assert "Empty recipe" in w.issues_label.text()
+    d = TemplateChooserDialog(catalog, w)
+    assert d.table.rowCount() == len(catalog.templates)
+    d.filter.setText("l2b pol")
+    shown = [d.table.item(r, 0).text() for r in range(d.table.rowCount())]
+    assert shown and all("pol" in n and "l2b" in n for n in shown)
+    d.filter.setText("frame_select")
+    assert d.table.rowCount() and "frame_select" in d.preview.toPlainText()
+    d.filter.setText("l1_to_l2b")
+    names = [d.table.item(r, 0).text() for r in range(d.table.rowCount())]
+    d.table.selectRow(names.index("l1_to_l2b"))
+    assert d.selected() == "l1_to_l2b.json"
+    assert d.table.item(names.index("l1_to_l2b"), 1).text() == "L1"
+    d.close()
+    d.deleteLater()
+    app.processEvents()
+    # the Builder's button runs the dialog and loads the chosen template
+    monkeypatch.setattr(TemplateChooserDialog, "exec", lambda self: QtWidgets.QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(TemplateChooserDialog, "selected", lambda self: "l1_to_l2b.json")
+    w.start_template_btn.click()
+    assert w.recipe.name == "l1_to_l2b" and w.recipe.steps
+    assert "l1_to_l2b.json" in w.origin_label.text()
+    assert "Empty recipe" not in w.issues_label.text()

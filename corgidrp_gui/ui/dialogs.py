@@ -344,3 +344,140 @@ class CalibChooserDialog(QtWidgets.QDialog):
         self.path = self.selected_path()
         if self.path:
             super().accept()
+
+
+class TemplateChooserDialog(QtWidgets.QDialog):
+    """Pick a shipped or user template to start a recipe from.
+
+    A filter box, a table of templates (name, starting level, step count, origin)
+    and a preview of the steps in the highlighted template.
+    """
+
+    def __init__(self, catalog, parent=None, current: str | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Start from template")
+        self.resize(820, 520)
+        self.catalog = catalog
+        self._names: list[str] = []
+        lay = QtWidgets.QVBoxLayout(self)
+        self.filter = QtWidgets.QLineEdit()
+        self.filter.setPlaceholderText("Filter by template name, level or step name…")
+        self.filter.setClearButtonEnabled(True)
+        self.filter.textChanged.connect(self._refill)
+        lay.addWidget(self.filter)
+
+        split = QtWidgets.QSplitter()
+        self.table = QtWidgets.QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Template", "Starts at", "Steps", "Origin"])
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSortingEnabled(False)
+        hh = self.table.horizontalHeader()
+        hh.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        for c in (1, 2, 3):
+            hh.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.table.itemSelectionChanged.connect(self._preview)
+        self.table.itemDoubleClicked.connect(lambda *_: self.accept() if self.selected() else None)
+        split.addWidget(self.table)
+
+        right = QtWidgets.QWidget()
+        rl = QtWidgets.QVBoxLayout(right)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.addWidget(SectionLabel("Steps in this template"))
+        self.preview = QtWidgets.QPlainTextEdit()
+        self.preview.setReadOnly(True)
+        self.preview.setProperty("role", "log")
+        rl.addWidget(self.preview, 1)
+        split.addWidget(right)
+        split.setSizes([480, 340])
+        lay.addWidget(split, 1)
+
+        row = QtWidgets.QHBoxLayout()
+        self.summary = QtWidgets.QLabel()
+        row.addWidget(self.summary, 1)
+        cancel = QtWidgets.QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        self.ok = QtWidgets.QPushButton("Start with this template")
+        self.ok.setProperty("role", "primary")
+        self.ok.setDefault(True)
+        self.ok.clicked.connect(self.accept)
+        row.addWidget(cancel)
+        row.addWidget(self.ok)
+        lay.addLayout(row)
+
+        self._refill()
+        if current and current in self._names:
+            self.table.selectRow(self._names.index(current))
+        elif self.table.rowCount():
+            self.table.selectRow(0)
+        self.filter.setFocus()
+
+    # -- helpers ---------------------------------------------------------------
+    @staticmethod
+    def _level(catalog, name: str, tpl: dict) -> str:
+        fn = getattr(catalog, "_template_start_level", None)
+        lvl = fn(name, tpl) if fn else None
+        return lvl or "?"
+
+    def _matches(self, name: str, tpl: dict, needle: str) -> bool:
+        if not needle:
+            return True
+        hay = [name.lower(), self._level(self.catalog, name, tpl).lower()]
+        hay += [s.get("name", "").lower() for s in tpl.get("steps", [])]
+        return all(any(tok in h for h in hay) for tok in needle.lower().split())
+
+    def _refill(self, *_):
+        needle = self.filter.text().strip()
+        self.table.setRowCount(0)
+        self._names = []
+        for name in sorted(self.catalog.templates):
+            tpl = self.catalog.templates[name]
+            if not self._matches(name, tpl, needle):
+                continue
+            r = self.table.rowCount()
+            self.table.insertRow(r)
+            user = self.catalog.is_user_template(name)
+            cells = [name.replace(".json", ""), self._level(self.catalog, name, tpl),
+                     str(len(tpl.get("steps", []))), "user" if user else "shipped"]
+            for c, text in enumerate(cells):
+                it = QtWidgets.QTableWidgetItem(text)
+                if c in (1, 2):
+                    it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                it.setToolTip(self.catalog.template_paths.get(name, ""))
+                self.table.setItem(r, c, it)
+            self._names.append(name)
+        total = len(self.catalog.templates)
+        self.summary.setText(f"{len(self._names)} of {total} templates" if needle else f"{total} templates")
+        if self.table.rowCount():
+            self.table.selectRow(0)
+        else:
+            self.preview.setPlainText("")
+        self.ok.setEnabled(bool(self._names))
+
+    def selected(self) -> str | None:
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return None
+        return self._names[rows[0].row()]
+
+    def _preview(self):
+        name = self.selected()
+        if name is None:
+            self.preview.setPlainText("")
+            return
+        tpl = self.catalog.templates[name]
+        lines = []
+        for i, step in enumerate(tpl.get("steps", []), 1):
+            line = f"{i:2d}. {step.get('name', '?')}"
+            calibs = step.get("calibs") or {}
+            if calibs:
+                line += "   [" + ", ".join(calibs) + "]"
+            kws = step.get("keywords") or {}
+            if kws:
+                line += "   " + ", ".join(f"{k}={v!r}" for k, v in kws.items())
+            lines.append(line)
+        if not lines:
+            lines.append("(no steps)")
+        self.preview.setPlainText("\n".join(lines))

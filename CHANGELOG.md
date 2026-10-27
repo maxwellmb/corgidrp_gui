@@ -6,6 +6,7 @@
 - CalDB viewer: Remove missing entries button.
 - Status Console: unticking "Show only the selected job" restores the combined log.
 - Recipe Builder: double-click an argument's description to read it in full.
+- Recipe Builder: Start from template… button and dialog (searchable, with a step preview).
 
 ## 0.1.0 — 2026-10-20
 

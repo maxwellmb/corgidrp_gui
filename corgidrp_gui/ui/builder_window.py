@@ -24,7 +24,7 @@ from ..core.values import format_value
 from .base import ThemedWindow
 from .builder_models import (ArgTableModel, CatalogFilter, RecipeStepsModel, RecipeStepsView,
                              StepCatalogModel, StepInfoRole, ValueDelegate, needs_popout)
-from .dialogs import InputsDialog, RecipePreviewDialog, text_dialog
+from .dialogs import InputsDialog, RecipePreviewDialog, TemplateChooserDialog, text_dialog
 from .queue_bridge import dump_recipes
 from .widgets.themed import Chip, ElidedLabel, Panel, SectionLabel
 from .widgets.workers import JobRunner
@@ -68,6 +68,7 @@ class BuilderWindow(ThemedWindow):
     def _build_menus(self):
         m = self.add_menu("&File")
         self._act(m, "New recipe", self.new_recipe, "Ctrl+N")
+        self._act(m, "Start from template…", self.start_from_template_dialog, "Ctrl+T")
         self._act(m, "Open recipe…", self.open_recipe_dialog, "Ctrl+O")
         self._act(m, "Add input files…", self.add_input_files_dialog, "Ctrl+I")
         self.template_menu = m.addMenu("New from template")
@@ -170,7 +171,11 @@ class BuilderWindow(ThemedWindow):
         head.addWidget(self.level_chip, 0, 3)
         head.addWidget(QtWidgets.QLabel("Template"), 1, 0)
         self.origin_label = ElidedLabel("none")
-        head.addWidget(self.origin_label, 1, 1, 1, 3)
+        head.addWidget(self.origin_label, 1, 1)
+        self.start_template_btn = QtWidgets.QPushButton("Start from template…")
+        self.start_template_btn.setToolTip("Replace the recipe with a shipped or user template (Ctrl+T)")
+        self.start_template_btn.clicked.connect(self.start_from_template_dialog)
+        head.addWidget(self.start_template_btn, 1, 2, 1, 2)
         head.setColumnStretch(1, 1)
         rec_panel.layout().addLayout(head)
         self.steps_view = RecipeStepsView()
@@ -353,6 +358,19 @@ class BuilderWindow(ThemedWindow):
         self._template_origin = None
         self._template_origin_name = ""
         self._set_recipe(Recipe(name="new_recipe"))
+
+    def start_from_template_dialog(self):
+        """Searchable template chooser; loads the chosen template as the new recipe."""
+        current = self._template_origin_name.split("  ")[0] if self._template_origin_name else None
+        dlg = TemplateChooserDialog(self.catalog, self, current=current)
+        try:
+            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return
+            name = dlg.selected()
+        finally:
+            dlg.deleteLater()
+        if name:
+            self.load_template(name)
 
     def load_template(self, name: str):
         if not self._confirm_discard():
@@ -903,7 +921,10 @@ class BuilderWindow(ThemedWindow):
         errs = [i for i in issues if i.severity == "error"]
         warns = [i for i in issues if i.severity == "warning"]
         pal = theming.current_theme().palette
-        if not issues:
+        if not self.recipe.steps:
+            self.issues_label.setText("Empty recipe. Drag steps in from the catalog, or click Start from template… (Ctrl+T).")
+            self.issues_label.setStyleSheet(f"color: {pal.muted}")
+        elif not issues:
             self.issues_label.setText("No problems found.")
             self.issues_label.setStyleSheet(f"color: {pal.ok}")
         else:
